@@ -21,7 +21,7 @@ AEGIS is an Autonomous Emergency & Geospatial Identity Safeguard System designed
 ## ⛔ Absolute Rules & Constraints
 
 1. **Zero-Cost Constraint**: NEVER add or suggest paid APIs (such as Twilio SMS API, Google Maps Platform paid tiers, or paid cloud databases). Always use free, open-source alternatives (Leaflet/MapLibre + OpenStreetMap, Base64 compact native SMS payloads, free testnets like Ethereum Sepolia / Polygon Amoy, local Room DB).
-2. **Privacy-First Zero Knowledge**: NEVER write code that stores raw PII (Passport numbers, Aadhaar, phone numbers) on the public blockchain. Store ONLY `keccak256(TouristID + Salt)` cryptographic hash vouchers on-chain in `AegisTouristID.sol`.
+2. **Privacy-First Pseudonymous Commitments**: NEVER write code that stores raw PII (Passport numbers, Aadhaar, phone numbers) on the public blockchain or server. Store ONLY `keccak256(TouristID + ":" + Salt)` cryptographic hash vouchers on-chain in `AegisTouristID.sol`.
 3. **Offline-First Architecture**: Android functionality MUST compute geofences and store events locally in Room SQLite first before transmitting. Internet is treated as an optional enhancement, not a requirement.
 4. **No Superficial Symptom Patches**: Always fix the root cause of build or test failures. Never swallow exceptions or comment out assertions.
 

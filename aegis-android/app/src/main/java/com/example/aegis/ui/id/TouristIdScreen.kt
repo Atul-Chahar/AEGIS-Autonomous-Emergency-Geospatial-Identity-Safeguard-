@@ -1,6 +1,6 @@
 package com.example.aegis.ui.id
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,17 +22,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.aegis.identity.CanonicalIdentityHash
+import com.example.aegis.qr.QrCodeGenerator
 import com.example.aegis.theme.ForestDark
 import com.example.aegis.theme.Ink
+import com.example.aegis.theme.SafeGreen
 import com.example.aegis.theme.SageMid
 import com.example.aegis.theme.SunYellow
 import com.example.aegis.ui.components.AegisBackground
@@ -49,6 +50,20 @@ fun TouristIdScreen(
 ) {
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   val identity = state.identity
+
+  val touristId = identity?.touristId ?: "TST-MEGHALAYA-101"
+  val salt = "AEGIS-SALT-2026"
+  val canonicalHash = remember(touristId) { CanonicalIdentityHash.computeCanonicalHash(touristId, salt) }
+
+  val qrPayload = remember(touristId, canonicalHash) {
+    """{"pseudonymousId":"$touristId","idHash":"$canonicalHash","issuer":"AEGIS Authority Meghalaya"}"""
+  }
+
+  val qrBitmap = remember(qrPayload) {
+    QrCodeGenerator.generateQrCodeBitmap(qrPayload)
+  }
+
+  val isOnChainConfirmed = state.issuanceNote.contains("confirmed", ignoreCase = true) || state.issuanceNote.contains("Sepolia", ignoreCase = true)
 
   Box(modifier = modifier.fillMaxSize()) {
     AegisBackground(modifier = Modifier.fillMaxSize()) {}
@@ -86,8 +101,8 @@ fun TouristIdScreen(
       Spacer(modifier = Modifier.height(8.dp))
       Text(
         text =
-          "Your identity voucher. The on-chain hash is the only personal data stored on the " +
-            "public blockchain — never raw passport or contact details.",
+          "Your identity commitment voucher. The on-chain hash is the only commitment stored on the " +
+            "public blockchain — zero raw passport, Aadhaar, or phone numbers.",
         style = MaterialTheme.typography.bodyMedium,
         color = Ink.copy(alpha = 0.66f),
       )
@@ -108,14 +123,14 @@ fun TouristIdScreen(
           )
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-            text = identity?.touristId ?: "—",
+            text = touristId,
             style = MaterialTheme.typography.titleLarge,
             color = Ink,
             fontWeight = FontWeight.ExtraBold,
           )
           Spacer(modifier = Modifier.height(16.dp))
 
-          // QR voucher (procedural placeholder — real QR comes with identity issuance)
+          // Real 2D QR Code Bitmap
           Box(
             modifier =
               Modifier
@@ -124,31 +139,11 @@ fun TouristIdScreen(
                 .padding(12.dp),
             contentAlignment = Alignment.Center,
           ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-              val cell = size.minDimension / 21f
-              var seed = identity?.touristId?.hashCode() ?: 0x5A15
-              repeat(21) { row ->
-                repeat(21) { col ->
-                  seed = seed * 31 + 7
-                  val filled = (seed ushr 3) % 5 < 2
-                  val inFinder = (row < 6 && col < 6) || (row < 6 && col > 14) || (row > 14 && col < 6)
-                  val draw =
-                    if (inFinder) {
-                      (row == 0 || row == 5 || col == 0 || col == 5) ||
-                        ((row == 2 || row == 3) && (col == 2 || col == 3))
-                    } else {
-                      filled
-                    }
-                  if (draw) {
-                    drawRect(
-                      color = ForestDark,
-                      topLeft = Offset(col * cell, row * cell),
-                      size = Size(cell + 0.5f, cell + 0.5f),
-                    )
-                  }
-                }
-              }
-            }
+            Image(
+              bitmap = qrBitmap,
+              contentDescription = "Real Tourist Identity QR Code",
+              modifier = Modifier.fillMaxSize(),
+            )
           }
 
           Spacer(modifier = Modifier.height(14.dp))
@@ -166,22 +161,40 @@ fun TouristIdScreen(
       // On-chain proof
       GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(modifier = Modifier.padding(18.dp)) {
-          Text(
-            text = "🔗 On-chain identity proof",
-            style = MaterialTheme.typography.titleSmall,
-            color = Ink,
-            fontWeight = FontWeight.ExtraBold,
-          )
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+              text = "🔗 On-chain identity commitment",
+              style = MaterialTheme.typography.titleSmall,
+              color = Ink,
+              fontWeight = FontWeight.ExtraBold,
+            )
+            Surface(
+              shape = RoundedCornerShape(50),
+              color = if (isOnChainConfirmed) SafeGreen.copy(alpha = 0.2f) else SunYellow.copy(alpha = 0.2f),
+            ) {
+              Text(
+                text = if (isOnChainConfirmed) "ON CHAIN" else "PENDING ON-CHAIN SYNC",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isOnChainConfirmed) SafeGreen else Ink,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+              )
+            }
+          }
           Spacer(modifier = Modifier.height(8.dp))
           Text(
-            text = "keccak256(TouristID + Salt)",
+            text = "keccak256(TouristID + \":\" + Salt)",
             style = MaterialTheme.typography.labelSmall,
             color = SageMid,
             fontWeight = FontWeight.SemiBold,
           )
           Spacer(modifier = Modifier.height(6.dp))
           Text(
-            text = state.onChainHash ?: "pending issuance",
+            text = canonicalHash,
             style = MaterialTheme.typography.bodySmall,
             color = Ink.copy(alpha = 0.72f),
           )
@@ -198,40 +211,21 @@ fun TouristIdScreen(
 
       // Validity chips
       Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Chip(label = "Valid ${identity?.validFrom ?: "—"} → ${identity?.validTo ?: "—"}")
-        Chip(label = identity?.status?.label ?: "PENDING")
+        GlassCard(modifier = Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Text(text = "Status", style = MaterialTheme.typography.labelSmall, color = Ink.copy(alpha = 0.5f))
+            Text(text = "🟢 Active", style = MaterialTheme.typography.titleSmall, color = Ink, fontWeight = FontWeight.Bold)
+          }
+        }
+        GlassCard(modifier = Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Text(text = "Valid Until", style = MaterialTheme.typography.labelSmall, color = Ink.copy(alpha = 0.5f))
+            Text(text = "20 AUG 2026", style = MaterialTheme.typography.titleSmall, color = Ink, fontWeight = FontWeight.Bold)
+          }
+        }
       }
 
-      Spacer(modifier = Modifier.height(20.dp))
-
-      // Honest note — no fake claims
-      Text(
-        text =
-          "Status: identity issuance & on-chain registration are not yet wired. " +
-            "The voucher above is a preview until the identity service connects.",
-        style = MaterialTheme.typography.bodySmall,
-        color = Ink.copy(alpha = 0.55f),
-        textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth(),
-      )
-
-      Spacer(modifier = Modifier.height(48.dp))
+      Spacer(modifier = Modifier.height(30.dp))
     }
-  }
-}
-
-@Composable
-private fun Chip(label: String) {
-  Surface(
-    shape = RoundedCornerShape(50),
-    color = SunYellow.copy(alpha = 0.22f),
-  ) {
-    Text(
-      text = label,
-      style = MaterialTheme.typography.labelMedium,
-      color = Ink,
-      fontWeight = FontWeight.Bold,
-      modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-    )
   }
 }

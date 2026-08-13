@@ -1,15 +1,15 @@
-const hre = require("hardhat");
+const { ethers } = require("hardhat");
 
 async function main() {
-  console.log("🛡️ Deploying AEGIS Privacy Tourist ID Smart Contract...");
+  console.log("Deploying AegisTouristID contract...");
+  const AegisFactory = await ethers.getContractFactory("AegisTouristID");
+  const aegis = await AegisFactory.deploy();
 
-  const AegisTouristID = await hre.ethers.getContractFactory("AegisTouristID");
-  const aegisContract = await AegisTouristID.deploy();
+  await aegis.waitForDeployment();
+  const address = await aegis.getAddress();
 
-  await aegisContract.waitForDeployment();
-
-  const contractAddress = await aegisContract.getAddress();
-  console.log(`✅ AegisTouristID deployed to: ${contractAddress}`);
+  console.log(`✅ AegisTouristID deployed to: ${address}`);
+  console.log(`Network: ${hardhat.network.name} (Chain ID: ${hardhat.network.config.chainId || 31337})`);
 }
 
 main().catch((error) => {

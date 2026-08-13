@@ -25,22 +25,22 @@ The core technical vision bridges **privacy-first digital identity**, **offline-
 
 ## 🌟 Top 10 Differentiating Features
 
-1. **Privacy-Preserving Blockchain Tourist ID (`AegisTouristID.sol`)**:
-   - Zero-Knowledge proof mechanism: Stores ONLY keccak256 hashes of tourist IDs (`sha256(TouristID + Salt)`), trip expiry timestamps, and cryptographic validity vouchers on Ethereum Sepolia / Polygon Amoy testnets. No raw PII is ever stored on-chain.
+1. **Privacy-Preserving Ephemeral Pseudonymous Identity Commitment (`AegisTouristID.sol`)**:
+   - Ephemeral Commitment Mechanism: Stores ONLY canonical keccak256 hashes of tourist IDs (`keccak256(touristId + ":" + salt)`), trip validity timestamps, and cryptographic vouchers on Ethereum Sepolia testnet. No raw PII (Passport, Aadhaar, phone numbers) is ever stored on-chain or on server.
 2. **On-Device Offline-First GNSS Geofencing**:
    - Evaluates exact GPS polygon intersections locally on-device without internet or cell connectivity.
 3. **Resilient Dual-Channel Emergency SOS**:
    - WebSockets stream when online; ultra-compact Base64 SMS string payload fallback when mobile data is down.
 4. **Peer-to-Peer Offline Mesh Relay Network**:
-   - Android Nearby Connections API using Bluetooth Low Energy (BLE) and Wi-Fi Direct for relaying emergency messages across tourist devices in complete dead zones.
-5. **Multi-Factor AI Risk Scoring Engine**:
-   - Weighted score algorithm evaluating route deviation, inactivity time, zone risk, and SOS status to eliminate false alarms.
+   - Google Nearby Connections API using Bluetooth Low Energy (BLE) and Wi-Fi Direct for store-and-forward relaying of emergency messages across tourist devices in complete dead zones.
+5. **Multi-Factor Sensor Fusion Risk Engine**:
+   - Multi-phase state machine (BEFORE, EVENT, AFTER) filtering false positives (speed bumps, bus vibration, phone drops, hard braking) using linear acceleration, gyro, GPS, and activity recognition.
 6. **Smart Inactivity & Interactive Check-In Monitor**:
-   - 2-stage countdown verification before escalating immobility alerts to control room operators.
+   - State machine verification (`NORMAL` -> `CHECK_REQUIRED` -> `USER_PROMPTED` -> `SAFE_CONFIRMED` / `NO_RESPONSE`) before escalating immobility alerts.
 7. **Dynamic Sensor-Fused Hazard Mapping**:
-   - Geofence danger ratings dynamically elevate based on real-time weather alerts and verified hazard reports.
-8. **Crowdsourced Hazard Validation Engine**:
-   - Multi-report confidence verification ($\ge 3$ distinct IDs in 500m radius auto-elevates geofence risk).
+   - Geofence danger ratings dynamically elevate based on verified hazard reports and route closures.
+8. **Sybil-Resistant Hazard Confidence Engine**:
+   - Multi-factor spatial/temporal evaluation engine with distinct reporter deduplication, role weighting (Authority, Verified Guide, Tourist), evidence bonuses, and maximum 2-hour window.
 9. **Glassmorphic Authority Command Center**:
    - High-density dark-mode web dashboard featuring live Leaflet / MapLibre map with open-source OpenStreetMap vector tiles, animated SOS pins, and incident drawers.
 10. **Geospatial Nearest-Responder Routing & Jurisdiction Auto-Detection**:
