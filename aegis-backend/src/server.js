@@ -150,7 +150,20 @@ app.get('/api/geofences', (req, res) => {
 
 // 5. Submit SOS Emergency Panic Alert (WebSockets + Compact SMS Fallback Decoder)
 app.post('/api/sos', (req, res) => {
-  const { touristId, idHash, lat, lon, batteryPct, channel, rawSmsPayload } = req.body;
+  const { packetId, touristId, idHash, lat, lon, batteryPct, channel, rawSmsPayload } = req.body;
+
+  // Idempotency check: if packetId was already processed, return existing incident ack
+  if (packetId) {
+    const existing = state.incidents.find(i => i.packetId === packetId);
+    if (existing) {
+      return res.json({
+        success: true,
+        incidentId: existing.id,
+        packetId: existing.packetId,
+        message: 'Duplicate SOS packet acknowledged idempotently'
+      });
+    }
+  }
 
   let parsedId = touristId;
   let parsedLat = parseFloat(lat);
@@ -173,12 +186,13 @@ app.post('/api/sos', (req, res) => {
 
   const incident = {
     id: 'INC-' + Date.now(),
+    packetId: packetId || null,
     touristId: parsedId || 'TST-UNKNOWN',
     idHash: idHash || '0xUNKNOWN',
     lat: parsedLat || 25.145,
     lon: parsedLon || 91.265,
     batteryPct: parsedBat,
-    channel: channel || 'WEBSOCKET',
+    channel: channel || 'HTTPS',
     timestamp: new Date().toISOString(),
     status: 'OPEN',
     riskScore: 100
@@ -199,7 +213,7 @@ app.post('/api/sos', (req, res) => {
   // Broadcast to Command Center WebSockets
   broadcast('EMERGENCY_SOS', incident);
 
-  res.json({ success: true, incidentId: incident.id, message: 'SOS Alert dispatched to authority command center' });
+  res.json({ success: true, incidentId: incident.id, packetId: incident.packetId, message: 'SOS Alert dispatched to authority command center' });
 });
 
 // 6. Get Incidents & Active Tourists

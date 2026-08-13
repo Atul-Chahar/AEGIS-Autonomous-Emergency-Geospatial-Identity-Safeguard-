@@ -45,12 +45,13 @@ data class IdentityRegisterResponse(
 
 @Serializable
 data class SosRequestDto(
+  val packetId: String? = null,
   val touristId: String,
   val idHash: String? = null,
   val lat: Double? = null,
   val lon: Double? = null,
   val batteryPct: Int? = null,
-  val channel: String = "WEBSOCKET",
+  val channel: String = "HTTPS",
   val rawSmsPayload: String? = null,
 )
 
@@ -58,6 +59,7 @@ data class SosRequestDto(
 data class SosResponseDto(
   val success: Boolean,
   val incidentId: String? = null,
+  val packetId: String? = null,
   val message: String? = null,
 )
 

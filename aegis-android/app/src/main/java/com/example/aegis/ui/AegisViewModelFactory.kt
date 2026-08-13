@@ -57,6 +57,7 @@ object AegisViewModelFactory : ViewModelProvider.Factory {
           EmergencyViewModel(
             dispatchSos = DispatchSosUseCase(container.emergencyRepository),
             identityRepository = container.identityRepository,
+            blackBoxRepository = container.blackBoxRepository,
           )
         }
 

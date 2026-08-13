@@ -31,7 +31,12 @@ class AppContainer(context: Context) {
   val safetyZoneRepository: SafetyZoneRepository by lazy {
     com.example.aegis.data.repository.RoomSafetyZoneRepository(database.zoneDao())
   }
-  val emergencyRepository: EmergencyRepository = DemoEmergencyRepository()
+  val emergencyRepository: EmergencyRepository by lazy {
+    com.example.aegis.data.repository.RealEmergencyRepository(
+      outboxDao = database.outboxDao(),
+      blackBoxRepository = blackBoxRepository,
+    )
+  }
   val identityRepository: IdentityRepository = DemoIdentityRepository()
 
   // Real, Room-backed check-ins.

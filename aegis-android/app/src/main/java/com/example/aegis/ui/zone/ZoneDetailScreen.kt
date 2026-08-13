@@ -27,6 +27,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import com.example.aegis.theme.CautionAmber
+import com.example.aegis.theme.SafeGreen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -194,6 +196,15 @@ fun ZoneDetailScreen(
                 )
               },
             )
+            emergencyState.statusMessage?.let { msg ->
+              Spacer(modifier = Modifier.height(10.dp))
+              Text(
+                text = msg,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (msg.contains("Delivered")) SafeGreen else CautionAmber,
+                fontWeight = FontWeight.Bold,
+              )
+            }
             emergencyState.error?.let {
               Spacer(modifier = Modifier.height(10.dp))
               Text(

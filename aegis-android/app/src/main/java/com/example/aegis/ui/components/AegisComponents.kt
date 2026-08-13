@@ -670,6 +670,56 @@ fun SosOverlay(
           }
 
           when (dispatchResult) {
+            is SosDispatchResult.Sent ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = SafeGreen.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, SafeGreen.copy(alpha = 0.5f)),
+              ) {
+                Row(
+                  modifier = Modifier.fillMaxWidth().padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = SafeGreen,
+                    modifier = Modifier.size(20.dp),
+                  )
+                  Spacer(modifier = Modifier.width(10.dp))
+                  Text(
+                    text = "Delivered via ${dispatchResult.transport} (Ack: ${dispatchResult.ackId})",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SafeGreen,
+                  )
+                }
+              }
+            is SosDispatchResult.PendingSmsFallback ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = CautionAmber.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, CautionAmber.copy(alpha = 0.5f)),
+              ) {
+                Text(
+                  text = "🛰 Saved to Outbox · ${dispatchResult.reason}",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = CautionAmber,
+                  modifier = Modifier.padding(12.dp),
+                )
+              }
+            is SosDispatchResult.Failed ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = DangerRed.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f)),
+              ) {
+                Text(
+                  text = "❌ Failed: ${dispatchResult.reason}",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = DangerRed,
+                  modifier = Modifier.padding(12.dp),
+                )
+              }
             is SosDispatchResult.NotAvailable ->
               Surface(
                 shape = RoundedCornerShape(14.dp),
@@ -701,7 +751,7 @@ fun SosOverlay(
                   )
                   Spacer(modifier = Modifier.width(10.dp))
                   Text(
-                    text = "SOS dispatched",
+                    text = "SOS dispatched via Outbox",
                     style = MaterialTheme.typography.labelMedium,
                     color = SafeGreen,
                   )
