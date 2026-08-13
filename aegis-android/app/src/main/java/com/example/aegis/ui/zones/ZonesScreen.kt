@@ -1,6 +1,5 @@
 package com.example.aegis.ui.zones
 
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -46,7 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,8 +52,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import com.example.aegis.Activity
 import com.example.aegis.Home
+import com.example.aegis.Map
 import com.example.aegis.TouristId
-import com.example.aegis.Zones
 import com.example.aegis.data.repository.demo.DemoSafetyZoneRepository
 import com.example.aegis.domain.model.SafetyZone
 import com.example.aegis.domain.model.ZoneStatus
@@ -83,12 +81,12 @@ fun ZonesScreen(
   viewModel: ZonesViewModel,
   onBack: () -> Unit,
   onOpenHome: () -> Unit,
+  onOpenActivity: () -> Unit,
   onOpenTouristId: () -> Unit,
   onOpenZoneDetail: (String) -> Unit,
   onSos: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val context = LocalContext.current
   val zones by viewModel.filteredZones.collectAsStateWithLifecycle()
   val active by viewModel.activeZone.collectAsStateWithLifecycle()
   val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
@@ -96,7 +94,7 @@ fun ZonesScreen(
   val navItems =
     listOf(
       BottomNavItem("Home", Icons.Filled.Home, Home),
-      BottomNavItem("Map", Icons.Filled.Place, Zones),
+      BottomNavItem("Map", Icons.Filled.Place, Map),
       BottomNavItem("Activity", Icons.Filled.Notifications, Activity),
       BottomNavItem("ID", Icons.Filled.Person, TouristId),
     )
@@ -195,13 +193,12 @@ fun ZonesScreen(
 
     AegisBottomNavScaffold(
       items = navItems,
-      selected = Zones,
+      selected = Map,
       onSelect = { key: NavKey ->
         when (key) {
           Home -> onOpenHome()
           TouristId -> onOpenTouristId()
-          Activity ->
-            Toast.makeText(context, "📊 Activity log coming soon", Toast.LENGTH_SHORT).show()
+          Activity -> onOpenActivity()
           else -> Unit
         }
       },
@@ -398,6 +395,7 @@ private fun ZonesScreenPreview() {
       viewModel = ZonesViewModel(ObserveSafetyZonesUseCase(DemoSafetyZoneRepository())),
       onBack = {},
       onOpenHome = {},
+      onOpenActivity = {},
       onOpenTouristId = {},
       onOpenZoneDetail = {},
       onSos = {},

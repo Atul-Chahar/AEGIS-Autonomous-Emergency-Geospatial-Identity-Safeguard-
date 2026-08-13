@@ -1,6 +1,7 @@
 package com.example.aegis.ui.activity
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,19 +27,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import com.example.aegis.Activity
 import com.example.aegis.Home
+import com.example.aegis.Map
 import com.example.aegis.TouristId
-import com.example.aegis.Zones
 import com.example.aegis.theme.CautionAmber
+import com.example.aegis.theme.DangerRed
 import com.example.aegis.theme.ForestDark
 import com.example.aegis.theme.GlassBorder
 import com.example.aegis.theme.GlassSurface
@@ -49,27 +49,27 @@ import com.example.aegis.ui.components.AegisBackground
 import com.example.aegis.ui.components.AegisBottomNavScaffold
 import com.example.aegis.ui.components.BottomNavItem
 import com.example.aegis.ui.components.GlassCard
-import com.example.aegis.ui.components.SosOverlay
-import com.example.aegis.ui.home.HomeViewModel
+import com.example.aegis.ui.components.GuardianStatePill
+import com.example.aegis.ui.state.ActivityTimelineState
+import com.example.aegis.ui.state.AegisSampleState
+import com.example.aegis.ui.state.JourneyActivityEvent
+import com.example.aegis.ui.state.TimelineEventLevel
 
 @Composable
 fun ActivityScreen(
-  viewModel: HomeViewModel,
   onOpenHome: () -> Unit,
-  onOpenZones: () -> Unit,
+  onOpenMap: () -> Unit,
   onOpenTouristId: () -> Unit,
+  onOpenSafetyCenter: () -> Unit,
+  onOpenBlackBox: () -> Unit,
   onSos: () -> Unit,
   modifier: Modifier = Modifier,
+  state: ActivityTimelineState = AegisSampleState.activity,
 ) {
-  val isTracking by viewModel.isTrackingActive.collectAsStateWithLifecycle()
-  val locationText by viewModel.locationText.collectAsStateWithLifecycle()
-  val routeGuidance by viewModel.routeDeviationText.collectAsStateWithLifecycle()
-  val activePeerCount by viewModel.activePeerCount.collectAsStateWithLifecycle()
-  val latestBreadcrumb by viewModel.latestBreadcrumb.collectAsStateWithLifecycle()
   val navItems =
     listOf(
       BottomNavItem("Home", Icons.Filled.Home, Home),
-      BottomNavItem("Map", Icons.Filled.Place, Zones),
+      BottomNavItem("Map", Icons.Filled.Place, Map),
       BottomNavItem("Activity", Icons.Filled.Notifications, Activity),
       BottomNavItem("ID", Icons.Filled.Person, TouristId),
     )
@@ -85,22 +85,22 @@ fun ActivityScreen(
           .padding(bottom = 150.dp),
       verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-      Text(text = "Activity", style = MaterialTheme.typography.displayMedium, color = Ink)
-      Text(text = "Journey events from local protection systems.", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column {
+          Text(text = "Activity", style = MaterialTheme.typography.displayMedium, color = Ink)
+          Text(text = "Journey timeline", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+        }
+        GuardianStatePill(state.guardian, onClick = onOpenSafetyCenter)
+      }
 
-      GlassCard(shape = RoundedCornerShape(28.dp)) {
-        Text(text = "Journey Protection", style = MaterialTheme.typography.headlineSmall, color = Ink)
-        Text(
-          text = if (isTracking) "Recording this journey locally" else "Ready to record your next journey",
-          style = MaterialTheme.typography.bodyMedium,
-          color = if (isTracking) SafeGreen else InkSoft,
-        )
+      GlassCard(onClick = onOpenBlackBox, shape = RoundedCornerShape(28.dp)) {
+        Text(text = "Journey BlackBox", style = MaterialTheme.typography.headlineSmall, color = Ink)
+        Text(text = "${state.blackBoxSummary.recordingState} · last breadcrumb ${state.blackBoxSummary.lastBreadcrumbTime}", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+        Text(text = "${state.blackBoxSummary.pendingBreadcrumbs} pending breadcrumbs", style = MaterialTheme.typography.labelMedium, color = CautionAmber)
       }
 
       Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TimelineRow("Location", locationText, if (latestBreadcrumb != null) "Updated recently" else "Waiting")
-        TimelineRow("Route", routeGuidance, if (routeGuidance.contains("away")) "Attention" else "Normal")
-        TimelineRow("Offline Relay", if (activePeerCount > 0) "$activePeerCount nearby support device(s)" else "No nearby relay right now", if (activePeerCount > 0) "Available" else "Limited")
+        state.events.forEach { TimelineRow(event = it) }
       }
     }
 
@@ -110,38 +110,41 @@ fun ActivityScreen(
       onSelect = { key: NavKey ->
         when (key) {
           Home -> onOpenHome()
-          Zones -> onOpenZones()
+          Map -> onOpenMap()
           TouristId -> onOpenTouristId()
           else -> Unit
         }
       },
       onSos = onSos,
-      modifier =
-        Modifier
-          .align(Alignment.BottomCenter)
-          .navigationBarsPadding()
-          .padding(horizontal = 20.dp)
-          .padding(bottom = 10.dp),
+      modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 10.dp),
     )
   }
 }
 
 @Composable
-private fun TimelineRow(title: String, body: String, status: String) {
-  val color = if (status == "Attention" || status == "Limited") CautionAmber else SafeGreen
-  Surface(shape = RoundedCornerShape(22.dp), color = GlassSurface, border = BorderStroke(1.dp, GlassBorder)) {
-    Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-      Box(modifier = Modifier.size(34.dp).clip(CircleShape), contentAlignment = Alignment.Center) {
-        Surface(shape = CircleShape, color = color) {
-          Box(modifier = Modifier.size(10.dp))
+fun TimelineRow(event: JourneyActivityEvent, modifier: Modifier = Modifier) {
+  val color =
+    when (event.level) {
+      TimelineEventLevel.NORMAL -> SafeGreen
+      TimelineEventLevel.CAUTION -> CautionAmber
+      TimelineEventLevel.ATTENTION -> CautionAmber
+      TimelineEventLevel.EMERGENCY -> DangerRed
+    }
+  Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+      Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(color.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
+      }
+    }
+    Spacer(modifier = Modifier.width(12.dp))
+    Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp), color = GlassSurface, border = BorderStroke(1.dp, GlassBorder)) {
+      Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+          Text(text = event.title, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
+          Text(text = event.time, style = MaterialTheme.typography.labelSmall, color = InkSoft)
         }
+        Text(text = event.subtitle, style = MaterialTheme.typography.bodySmall, color = InkSoft)
       }
-      Spacer(modifier = Modifier.width(12.dp))
-      Column(modifier = Modifier.weight(1f)) {
-        Text(text = title, style = MaterialTheme.typography.titleSmall, color = Ink)
-        Text(text = body, style = MaterialTheme.typography.bodySmall, color = InkSoft)
-      }
-      Text(text = status, style = MaterialTheme.typography.labelSmall, color = color)
     }
   }
 }

@@ -1,6 +1,5 @@
 package com.example.aegis.ui.home
 
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -56,8 +55,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import com.example.aegis.Activity
 import com.example.aegis.Home
+import com.example.aegis.Map
 import com.example.aegis.TouristId
-import com.example.aegis.Zones
 import com.example.aegis.domain.model.SafetyZone
 import com.example.aegis.domain.model.TouristIdentity
 import com.example.aegis.domain.model.ZoneStatus
@@ -94,6 +93,9 @@ import com.example.aegis.ui.permissions.rememberLocationPermissionState
 fun HomeScreen(
   viewModel: HomeViewModel,
   onOpenZones: () -> Unit,
+  onOpenActivity: () -> Unit,
+  onOpenSafetyCenter: () -> Unit,
+  onOpenTripSetup: () -> Unit,
   onOpenTouristId: () -> Unit,
   onOpenZoneDetail: (String) -> Unit,
   onSos: () -> Unit,
@@ -115,7 +117,7 @@ fun HomeScreen(
   val navItems =
     listOf(
       BottomNavItem("Home", Icons.Filled.Home, Home),
-      BottomNavItem("Map", Icons.Filled.Place, Zones),
+      BottomNavItem("Map", Icons.Filled.Place, Map),
       BottomNavItem("Activity", Icons.Filled.Notifications, Activity),
       BottomNavItem("ID", Icons.Filled.Person, TouristId),
     )
@@ -149,7 +151,12 @@ fun HomeScreen(
             color = if (isMeshActive) SafeGreen else InkSoft,
           )
         }
-        GuardianWidget(status = featured?.status, isMeshActive = isMeshActive, peerCount = activePeerCount)
+        GuardianWidget(
+          status = featured?.status,
+          isMeshActive = isMeshActive,
+          peerCount = activePeerCount,
+          onClick = onOpenSafetyCenter,
+        )
       }
 
       // Hero — region tag + big title + scan pill
@@ -178,7 +185,10 @@ fun HomeScreen(
       ) {
         val categories =
           listOf(
-            "Location" to "??",`r`n            "Journey Log" to "??",`r`n            "Offline Relay" to "??",`r`n            "Check-in" to "?",
+            "Location" to "L",
+            "Journey Log" to "J",
+            "Offline Relay" to "R",
+            "Check-in" to "C",
           )
         categories.forEachIndexed { index, (label, emoji) ->
           FilterPill(
@@ -187,7 +197,7 @@ fun HomeScreen(
             selected = index == selectedCategory,
             onClick = {
               selectedCategory = index
-              if (label == "Journey Log") onOpenTouristId()
+              if (label == "Journey Log") onOpenActivity()
             },
           )
         }
@@ -202,7 +212,7 @@ fun HomeScreen(
           routeDeviationText = routeDeviationText,
           onStartRoute = {
             if (!locationPermission.isGranted) locationPermission.request()
-            viewModel.startRoute(context, featured.id)
+            onOpenTripSetup()
           },
           onStopRoute = {
             viewModel.stopRoute(context)
@@ -231,10 +241,9 @@ fun HomeScreen(
       selected = Home,
       onSelect = { key: NavKey ->
         when (key) {
-          Zones -> onOpenZones()
+          Map -> onOpenZones()
           TouristId -> onOpenTouristId()
-          Activity ->
-            Toast.makeText(context, "📊 Activity log coming soon", Toast.LENGTH_SHORT).show()
+          Activity -> onOpenActivity()
           else -> Unit
         }
       },
@@ -257,6 +266,7 @@ private fun GuardianWidget(
   status: ZoneStatus?,
   isMeshActive: Boolean = false,
   peerCount: Int = 0,
+  onClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val (emoji, label) =
@@ -272,6 +282,7 @@ private fun GuardianWidget(
       }
     }
   Surface(
+    onClick = onClick,
     modifier = modifier,
     shape = RoundedCornerShape(50),
     color = GlassSurface,
@@ -354,7 +365,7 @@ private fun ScanIdButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 private fun FeaturedZoneCard(
   zone: SafetyZone,
-  isJourney Protection: Boolean,
+  isTracking: Boolean,
   locationText: String,
   routeDeviationText: String,
   onStartRoute: () -> Unit,
@@ -524,6 +535,9 @@ private fun HomeScreenPreview() {
           blackBoxRepository = com.example.aegis.data.repository.demo.DemoBlackBoxRepository(),
         ),
       onOpenZones = {},
+      onOpenActivity = {},
+      onOpenSafetyCenter = {},
+      onOpenTripSetup = {},
       onOpenTouristId = {},
       onOpenZoneDetail = {},
       onSos = {},

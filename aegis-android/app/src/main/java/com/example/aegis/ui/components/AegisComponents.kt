@@ -80,6 +80,8 @@ import com.example.aegis.theme.SageMid
 import com.example.aegis.theme.SagePale
 import com.example.aegis.theme.SageSoft
 import com.example.aegis.theme.SunYellow
+import com.example.aegis.ui.state.GuardianLevel
+import com.example.aegis.ui.state.GuardianSystemState
 
 // ─────────────────────────────────────────────────────────────
 // AegisBackground — full-screen sage gradient with soft "liquid"
@@ -397,6 +399,41 @@ fun GlassIconButton(
 // RiskMeter — live risk score bar with a marker on the
 // Safe → Caution → High band.
 // ─────────────────────────────────────────────────────────────
+@Composable
+fun GuardianStatePill(
+  state: GuardianSystemState,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val color =
+    when (state.level) {
+      GuardianLevel.ACTIVE -> SafeGreen
+      GuardianLevel.LIMITED -> SunYellow
+      GuardianLevel.ATTENTION -> CautionAmber
+      GuardianLevel.EMERGENCY -> DangerRed
+    }
+
+  Surface(
+    onClick = onClick,
+    modifier = modifier,
+    shape = RoundedCornerShape(22.dp),
+    color = GlassSurface,
+    border = BorderStroke(1.dp, color.copy(alpha = 0.48f)),
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
+      Column {
+        Text(text = state.level.title, style = MaterialTheme.typography.labelMedium, color = Ink)
+        Text(text = state.level.subtitle, style = MaterialTheme.typography.labelSmall, color = InkSoft)
+      }
+    }
+  }
+}
+
 @Composable
 fun RiskMeter(score: Int, modifier: Modifier = Modifier) {
   val bandColor =
