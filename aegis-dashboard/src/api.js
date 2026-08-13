@@ -57,3 +57,12 @@ export async function verifyVoucher(idHash) {
   const res = await fetch(`${API_BASE_URL}/identity/verify/${encodeURIComponent(idHash)}`);
   return res.json();
 }
+
+export async function fetchSearchProbability(params = {}) {
+  const res = await fetch(`${API_BASE_URL}/search-probability`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  });
+  return res.json();
+}

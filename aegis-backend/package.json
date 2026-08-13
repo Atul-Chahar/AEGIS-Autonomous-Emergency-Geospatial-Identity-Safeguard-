@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "test": "node --test test/backend.integration.test.js test/hazardConfidence.test.js test/identityAudit.test.js"
+    "test": "node --test test/backend.integration.test.js test/hazardConfidence.test.js test/identityAudit.test.js test/searchProbability.test.js"
   },
   "dependencies": {
     "@turf/turf": "^7.1.0",
