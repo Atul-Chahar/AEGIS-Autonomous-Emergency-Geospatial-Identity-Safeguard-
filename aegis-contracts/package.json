@@ -1,0 +1,23 @@
+{
+  "name": "aegis-contracts",
+  "version": "1.0.0",
+  "description": "AEGIS Privacy-Preserving Blockchain Tourist Identity & Proof Registry Smart Contract",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx hardhat test",
+    "compile": "npx hardhat compile"
+  },
+  "keywords": [
+    "solidity",
+    "aegis",
+    "smart-contract",
+    "blockchain",
+    "privacy"
+  ],
+  "author": "AEGIS Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
+    "hardhat": "^2.29.0"
+  }
+}

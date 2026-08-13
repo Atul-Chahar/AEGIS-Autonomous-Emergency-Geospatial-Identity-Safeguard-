@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.gradle/
+.idea/
+*.apk
+*.log
+.DS_Store
+local.properties
+parsed_notion_research.txt
+*.html
