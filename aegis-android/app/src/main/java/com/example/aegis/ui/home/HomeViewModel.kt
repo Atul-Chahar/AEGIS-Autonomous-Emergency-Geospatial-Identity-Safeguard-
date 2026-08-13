@@ -10,6 +10,14 @@ import com.example.aegis.domain.model.TouristIdentity
 import com.example.aegis.domain.model.Trip
 import com.example.aegis.domain.usecase.GetTouristIdentityUseCase
 import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
+import com.example.aegis.location.LocationResult
+import com.example.aegis.location.LocationSanityChecker
+import com.example.aegis.safety.CheckInStatus
+import com.example.aegis.safety.OfflineGeofenceEngine
+import com.example.aegis.safety.RouteDeviationEngine
+import com.example.aegis.safety.SafetyCheckInManager
+import com.example.aegis.safety.TrekRoute
+import com.example.aegis.safety.GeoPoint
 import com.example.aegis.service.TripTrackingService
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +29,10 @@ class HomeViewModel(
   observeZones: ObserveSafetyZonesUseCase,
   observeIdentity: GetTouristIdentityUseCase,
   private val blackBoxRepository: BlackBoxRepository,
+  private val sanityChecker: LocationSanityChecker = LocationSanityChecker(),
+  private val geofenceEngine: OfflineGeofenceEngine = OfflineGeofenceEngine(),
+  private val deviationEngine: RouteDeviationEngine = RouteDeviationEngine(),
+  val checkInManager: SafetyCheckInManager? = null,
 ) : ViewModel() {
 
   val zones: StateFlow<List<SafetyZone>> =
@@ -49,13 +61,53 @@ class HomeViewModel(
   val locationText: StateFlow<String> =
     latestBreadcrumb.map { breadcrumb ->
       if (breadcrumb != null) {
-        val latStr = String.format(Locale.US, "%.4f° N", breadcrumb.latitude)
-        val lonStr = String.format(Locale.US, "%.4f° E", breadcrumb.longitude)
-        "$latStr, $lonStr (${breadcrumb.batteryPercent}% batt)"
+        val rawFix = LocationResult.Success(
+          latitude = breadcrumb.latitude,
+          longitude = breadcrumb.longitude,
+          accuracyMeters = breadcrumb.horizontalAccuracyMeters,
+          timestampEpochMillis = breadcrumb.timestamp,
+        )
+        val sanity = sanityChecker.checkSanity(rawFix)
+        if (sanity.isValid) {
+          val geofence = geofenceEngine.classifyLocation(breadcrumb.latitude, breadcrumb.longitude)
+          val zoneName = geofence.matchedPolygonName ?: "Meghalaya Region"
+          val latStr = String.format(Locale.US, "%.4f° N", breadcrumb.latitude)
+          val lonStr = String.format(Locale.US, "%.4f° E", breadcrumb.longitude)
+          "$zoneName · $latStr, $lonStr (${breadcrumb.batteryPercent}% batt)"
+        } else {
+          "Location signal degraded (${sanity.reason})"
+        }
       } else {
         "Location unavailable"
       }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Location unavailable")
+
+  val routeDeviationText: StateFlow<String> =
+    latestBreadcrumb.map { breadcrumb ->
+      if (breadcrumb == null) return@map "Route: On Corridor"
+      val fix = LocationResult.Success(
+        latitude = breadcrumb.latitude,
+        longitude = breadcrumb.longitude,
+        accuracyMeters = breadcrumb.horizontalAccuracyMeters,
+        timestampEpochMillis = breadcrumb.timestamp,
+      )
+      val defaultRoute = TrekRoute(
+        routeId = "cherrapunji-ridge",
+        name = "Cherrapunji Ridge Trail",
+        waypoints = listOf(
+          GeoPoint(25.2600, 91.6800),
+          GeoPoint(25.2800, 91.7000),
+          GeoPoint(25.3000, 91.7500),
+        ),
+        corridorWidthMeters = 50.0,
+      )
+      val dev = deviationEngine.evaluateDeviation(fix, defaultRoute)
+      if (dev.isDeviated) {
+        String.format(Locale.US, "⚠️ Route Deviation: +%.0fm off corridor", dev.effectiveDistanceMeters)
+      } else {
+        "Route: On Corridor (50m corridor)"
+      }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Route: On Corridor")
 
   val touristName: String
     get() = identity.value?.displayName ?: "Tourist"

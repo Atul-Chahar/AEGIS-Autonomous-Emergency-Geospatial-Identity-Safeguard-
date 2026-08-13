@@ -5,4 +5,5 @@ enum class ZoneStatus(val emoji: String, val label: String) {
   SAFE("🟢", "Safe"),
   CAUTION("🟡", "Caution"),
   HIGH_RISK("🔴", "High Risk"),
+  UNKNOWN("⚪", "Unknown"),
 }

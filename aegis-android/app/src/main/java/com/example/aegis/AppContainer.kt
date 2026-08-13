@@ -27,16 +27,23 @@ class AppContainer(context: Context) {
 
   val database: AegisDatabase by lazy { AegisDatabase.getInstance(appContext) }
 
-  // Demo/preview sources (see IMPLEMENTATION_STATUS.md). Swapped for real
-  // Room/remote implementations in later stages.
-  val safetyZoneRepository: SafetyZoneRepository = DemoSafetyZoneRepository()
+  // Real, Room & Offline Geofence-backed safety zone repository
+  val safetyZoneRepository: SafetyZoneRepository by lazy {
+    com.example.aegis.data.repository.RoomSafetyZoneRepository(database.zoneDao())
+  }
   val emergencyRepository: EmergencyRepository = DemoEmergencyRepository()
   val identityRepository: IdentityRepository = DemoIdentityRepository()
 
-  // Real, Room-backed.
+  // Real, Room-backed check-ins.
   val checkInRepository: CheckInRepository by lazy {
     RoomCheckInRepository(checkInDao = database.checkInDao(), identityRepository = identityRepository)
   }
+
+  // Real Offline Geospatial Safety Engine components
+  val locationSanityChecker by lazy { com.example.aegis.location.LocationSanityChecker() }
+  val offlineGeofenceEngine by lazy { com.example.aegis.safety.OfflineGeofenceEngine() }
+  val routeDeviationEngine by lazy { com.example.aegis.safety.RouteDeviationEngine() }
+  val safetyCheckInManager by lazy { com.example.aegis.safety.SafetyCheckInManager(checkInRepository) }
 
   // Real sensors (permission-gated at feature start).
   val locationProvider: LocationProvider = AndroidLocationProvider(appContext)

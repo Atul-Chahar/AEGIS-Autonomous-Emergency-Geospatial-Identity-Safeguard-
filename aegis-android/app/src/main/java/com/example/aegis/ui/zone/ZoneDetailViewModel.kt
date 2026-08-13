@@ -8,13 +8,12 @@ import com.example.aegis.domain.model.SafetyZone
 import com.example.aegis.domain.usecase.GetRescuePostUseCase
 import com.example.aegis.domain.usecase.GetZoneByIdUseCase
 import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
+import com.example.aegis.safety.SafetyCheckInManager
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class ZoneDetailUiState(
@@ -25,11 +24,12 @@ data class ZoneDetailUiState(
 )
 
 class ZoneDetailViewModel(
-  zoneId: String,
+  private val zoneId: String,
   getZoneById: GetZoneByIdUseCase,
   observeZones: ObserveSafetyZonesUseCase,
   getRescuePost: GetRescuePostUseCase,
   private val checkInRepository: CheckInRepository,
+  private val checkInManager: SafetyCheckInManager? = null,
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(ZoneDetailUiState())
@@ -50,11 +50,17 @@ class ZoneDetailViewModel(
     }
   }
 
-  /** Records a real local check-in (offline-first). Location attaches when wired. */
+  /** Records a real local check-in (offline-first). Honest status update stored in Room. */
   fun checkIn() {
     viewModelScope.launch {
-      checkInRepository.recordCheckIn(latitude = null, longitude = null)
-      _uiState.value = _uiState.value.copy(checkInNotice = "Checked in locally")
+      if (checkInManager != null) {
+        checkInManager.confirmSafe(latitude = null, longitude = null, zoneId = zoneId, note = "User clicked I'm Safe button")
+      } else {
+        checkInRepository.recordCheckIn(latitude = null, longitude = null)
+      }
+      _uiState.value = _uiState.value.copy(
+        checkInNotice = "Safety check-in recorded locally in Room SQLite (offline-first)"
+      )
     }
   }
 }

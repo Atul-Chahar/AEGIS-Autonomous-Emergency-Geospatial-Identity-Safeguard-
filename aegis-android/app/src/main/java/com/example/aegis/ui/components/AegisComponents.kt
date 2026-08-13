@@ -228,6 +228,7 @@ fun StatusPill(
       ZoneStatus.SAFE -> SafeGreen
       ZoneStatus.CAUTION -> CautionAmber
       ZoneStatus.HIGH_RISK -> DangerRed
+      ZoneStatus.UNKNOWN -> InkSoft
     }
   Surface(
     modifier = modifier,

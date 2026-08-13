@@ -108,6 +108,7 @@ fun HomeScreen(
   val identity by viewModel.identity.collectAsStateWithLifecycle()
   val isTracking by viewModel.isTrackingActive.collectAsStateWithLifecycle()
   val locationText by viewModel.locationText.collectAsStateWithLifecycle()
+  val routeDeviationText by viewModel.routeDeviationText.collectAsStateWithLifecycle()
 
   val navItems =
     listOf(
@@ -199,6 +200,7 @@ fun HomeScreen(
           zone = featured,
           isTracking = isTracking,
           locationText = locationText,
+          routeDeviationText = routeDeviationText,
           onStartRoute = {
             if (!locationPermission.isGranted) locationPermission.request()
             viewModel.startRoute(context, featured.id)
@@ -258,6 +260,7 @@ private fun GuardianWidget(status: ZoneStatus?, modifier: Modifier = Modifier) {
       ZoneStatus.SAFE -> "🟢" to "Safe Zone"
       ZoneStatus.CAUTION -> "🟡" to "Caution Zone"
       ZoneStatus.HIGH_RISK -> "🔴" to "High Risk"
+      ZoneStatus.UNKNOWN -> "⚪" to "Unknown"
       null -> "🛰" to "Guarding"
     }
   Surface(
@@ -299,6 +302,7 @@ private fun GuardianWidget(status: ZoneStatus?, modifier: Modifier = Modifier) {
                 ZoneStatus.SAFE -> SafeGreen
                 ZoneStatus.CAUTION -> CautionAmber
                 ZoneStatus.HIGH_RISK -> DangerRed
+                ZoneStatus.UNKNOWN -> InkSoft
                 null -> Ink
               },
           )
@@ -344,6 +348,7 @@ private fun FeaturedZoneCard(
   zone: SafetyZone,
   isTracking: Boolean,
   locationText: String,
+  routeDeviationText: String,
   onStartRoute: () -> Unit,
   onStopRoute: () -> Unit,
   onDetailClick: () -> Unit,
@@ -354,7 +359,7 @@ private fun FeaturedZoneCard(
     modifier =
       modifier
         .fillMaxWidth()
-        .height(360.dp)
+        .height(370.dp)
         .shadow(24.dp, shape, ambientColor = GlassSoftShadow, spotColor = GlassSoftShadow)
         .clip(shape)
         .background(ForestDark),
@@ -373,7 +378,7 @@ private fun FeaturedZoneCard(
     )
     Column(
       modifier = Modifier.align(Alignment.BottomStart).padding(20.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         RegionTag(text = zone.region, dark = true)
@@ -392,12 +397,19 @@ private fun FeaturedZoneCard(
         overflow = TextOverflow.Ellipsis,
       )
 
-      // Real BlackBox location fix display
+      // Real BlackBox location fix display & Route Corridor Status
       Text(
         text = if (isTracking) "🛰 Tracking: $locationText" else "📍 $locationText",
         style = MaterialTheme.typography.labelSmall,
         color = if (isTracking) SafeGreen else Color.White.copy(alpha = 0.75f),
       )
+      Text(
+        text = routeDeviationText,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (routeDeviationText.contains("⚠️")) CautionAmber else SafeGreen.copy(alpha = 0.9f),
+      )
+
+      Spacer(modifier = Modifier.height(2.dp))
 
       Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(

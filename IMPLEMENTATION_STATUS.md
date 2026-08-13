@@ -8,7 +8,14 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
 
 ## 🟢 Real Implementations (Production Ready)
 
-1. **AEGIS BlackBox (Offline Breadcrumb & Sensor Logging)**:
+1. **AEGIS Sensor Fusion Risk Engine**:
+   - **Multi-Phase State Machine**: Evaluates 30s BEFORE, impact EVENT, and 60s AFTER windows.
+   - **False Positive Elimination**: Speed bumps, bus vibration, phone drops, and hard braking are filtered out and **NEVER** generate emergency candidates.
+   - **Multi-Sensor Fusion**: Combines linear acceleration, accelerometer, gyroscope, rotation vector, step counter, GPS speed, and activity recognition.
+   - **In-Memory Rolling Ring Buffer**: `SensorRingBuffer` holds sliding temporal windows (30s before, event, 60s after) and evicts old samples.
+   - **Context Fallback**: Speed & energy fallback when Activity Recognition is `UNKNOWN`.
+
+2. **AEGIS BlackBox (Offline Breadcrumb & Sensor Logging)**:
    - **Persistent Storage**: Room SQLite database storing `TripEntity`, `BreadcrumbEntity`, and `SensorEventChunkEntity`.
    - **Repository Pattern**: `RoomBlackBoxRepository` fully decoupled from UI layer via `BlackBoxRepository` interface.
    - **Keystore Encryption**: Android Keystore AES-256 GCM (`BlackBoxEncryptor`) encrypts sensitive locally stored sensor payloads.
@@ -16,16 +23,16 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
    - **Process Recovery**: Restarts automatically (`START_STICKY`) upon process kill, guaranteeing active trips continue recording without losing unsynced breadcrumbs.
    - **UI Integration**: `HomeViewModel` exposes real active trip state and `latestBreadcrumb`. Shows formatted coordinates or `"Location unavailable"` when no fix exists (**Zero Fake Coordinates**).
 
-2. **Offline Local Check-In System**:
+3. **Offline Local Check-In System**:
    - `RoomCheckInRepository` storing user safety check-ins locally in SQLite via `CheckInDao` and `CheckInEntity`.
 
-3. **Risk Evaluation Engine**:
+4. **Risk Evaluation Engine**:
    - `RiskEvaluator` with risk score boundary mapping (0–30 Safe, 31–60 Caution, 61–100 High Risk).
 
-4. **SOS Payload Compact Codec**:
+5. **SOS Payload Compact Codec**:
    - `SosPayloadCodec` encoding compact Base64 SMS payloads for emergency situations without cellular data.
 
-5. **Security & Cryptography**:
+6. **Security & Cryptography**:
    - Keystore AES-256 GCM encryption for sensitive offline BlackBox sensor logs.
 
 ---
@@ -47,10 +54,11 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
 
 ---
 
-## 🧪 Verification & Test Coverage
+## 🧪 Verification & Test Coverage (27 / 27 Passed)
 
 - Unit tests pass cleanly for:
-  - `RiskEvaluatorTest` (risk band calculations)
-  - `SosPayloadCodecTest` (compact SOS encoding)
-  - `BlackBoxRepositoryTest` (starting trip, inserting breadcrumb, reading latest breadcrumb, app restart persistence, ending trip, no-location condition, encrypted sensor chunks)
-  - `BlackBoxEncryptorTest` (AES-GCM encryption/decryption cycle)
+  - `SensorFusionRiskEngineTest` (10 synthetic trace tests: walking, running, phone drop, bus vibration, speed bump, hard braking, vehicle crash, fall + movement recovery, fall + prolonged inactivity, and 100-iteration normal vehicle ride false-positive proof)
+  - `BlackBoxRepositoryTest` (7 tests)
+  - `BlackBoxEncryptorTest` (2 tests)
+  - `RiskEvaluatorTest` (5 tests)
+  - `SosPayloadCodecTest` (3 tests)

@@ -33,6 +33,10 @@ object AegisViewModelFactory : ViewModelProvider.Factory {
             observeZones = ObserveSafetyZonesUseCase(container.safetyZoneRepository),
             observeIdentity = GetTouristIdentityUseCase(container.identityRepository),
             blackBoxRepository = container.blackBoxRepository,
+            sanityChecker = container.locationSanityChecker,
+            geofenceEngine = container.offlineGeofenceEngine,
+            deviationEngine = container.routeDeviationEngine,
+            checkInManager = container.safetyCheckInManager,
           )
         }
 
@@ -74,6 +78,7 @@ fun zoneDetailViewModelFactory(zoneId: String): ViewModelProvider.Factory =
         observeZones = ObserveSafetyZonesUseCase(container.safetyZoneRepository),
         getRescuePost = GetRescuePostUseCase(container.safetyZoneRepository),
         checkInRepository = container.checkInRepository,
+        checkInManager = container.safetyCheckInManager,
       )
     }
   }
