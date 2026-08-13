@@ -20,6 +20,7 @@ import com.example.aegis.safety.RouteDeviationEngine
 import com.example.aegis.safety.SafetyCheckInManager
 import com.example.aegis.safety.TrekRoute
 import com.example.aegis.service.TripTrackingService
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
