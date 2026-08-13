@@ -1,16 +1,55 @@
-# React + Vite
+# AEGIS Authority Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React/Vite command center for AEGIS authority operators. The dashboard tracks active tourist trips, SOS incidents, hazards, geofences, responders, and BlackBox breadcrumb trails through the local AEGIS backend.
 
-Currently, two official plugins are available:
+## Purpose
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The dashboard is an emergency operations surface, not a general surveillance product. It should show pseudonymous safety state only:
 
-## React Compiler
+- `touristId`, `idHash` preview, and `tripId`
+- active incident status
+- last-known location, accuracy, timestamp, and battery
+- selected trip breadcrumb trail
+- geofence, hazard, search probability, and responder overlays
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+It must not display raw passport numbers, Aadhaar numbers, phone numbers, emergency contacts, or identity documents.
 
-## Expanding the Oxlint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- React 18 + Vite
+- Leaflet + React Leaflet
+- lucide-react icons
+- OpenStreetMap tiles
+- AEGIS Express REST API
+- AEGIS WebSocket gateway
+
+## Local Development
+
+```powershell
+npm install
+npm run dev
+```
+
+Default API configuration:
+
+- `VITE_API_BASE_URL=http://localhost:5000/api`
+- `VITE_WS_URL=ws://localhost:5000`
+
+## Verification
+
+```powershell
+npm run build
+```
+
+Backend verification:
+
+```powershell
+cd ..\aegis-backend
+npm test
+```
+
+## Dashboard Roadmap
+
+The implementation plan for user/trip tracking is documented at:
+
+- `docs/superpowers/plans/2026-08-14-web-dashboard-user-tracking.md`

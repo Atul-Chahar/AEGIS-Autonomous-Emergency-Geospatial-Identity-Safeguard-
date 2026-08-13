@@ -1,6 +1,5 @@
 const { Pool } = require('pg');
 const env = require('../config/env');
-const devFixtures = require('./seeds/dev_fixtures');
 
 class AegisDbPool {
   constructor() {
@@ -16,8 +15,8 @@ class AegisDbPool {
       incidentEvents: [],
       checkIns: [],
       hazardReports: [],
-      safetyZones: [...devFixtures.devGeofences],
-      responderUnits: [...devFixtures.devResponders],
+      safetyZones: [],
+      responderUnits: [],
       responderCapabilities: [],
       relayReceipts: new Map(),
     };
@@ -53,7 +52,7 @@ class AegisDbPool {
     if (this.isPostgresConnected && this.pgPool) {
       return this.pgPool.query(text, params);
     }
-    // Return mock query response structure for fallback
+    // Return empty query response structure when PostgreSQL is unavailable.
     return { rows: [], rowCount: 0 };
   }
 

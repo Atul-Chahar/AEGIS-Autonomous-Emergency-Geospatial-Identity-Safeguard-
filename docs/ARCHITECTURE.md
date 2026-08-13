@@ -1,5 +1,34 @@
 # AEGIS Architecture — Data Flow & Component Interactions
 
+## Authority Dashboard User Tracking Plan
+
+The web command center should become the operator-facing live tracking surface for active tourist trips and emergency incidents. Tracking is bounded to active trip monitoring and emergency response, and all UI/API contracts remain privacy-first: raw PII stays off the dashboard and off-chain.
+
+```mermaid
+flowchart LR
+    A["Android active trip"] -->|"breadcrumb sync"| B["Express API"]
+    C["Android SOS / BLE relay"] -->|"RescuePacket"| B
+    B --> D["PostGIS / in-memory dev store"]
+    B -->|"REST hydration"| E["React dashboard"]
+    B -->|"WebSocket events"| E
+    E -->|"incident state updates"| B
+    E -->|"responder match + search probability"| B
+```
+
+Dashboard operational layers:
+
+| Layer | Source | Dashboard usage |
+|---|---|---|
+| Active subjects | `GET /api/trips` plus latest breadcrumb | Show every monitored active trip, not only SOS cases. |
+| Breadcrumb trail | `GET /api/breadcrumbs/:tripId` | Render selected trip BlackBox trajectory. |
+| Incidents | `GET /api/incidents` and `EMERGENCY_SOS` | Show emergency markers and state machine actions. |
+| Geofences | `GET /api/geofences` | Render safe, caution, and high-risk polygons. |
+| Hazards | `GET /api/hazards` and hazard events | Show reported or confirmed route risks. |
+| Responders | `GET /api/responders` and `POST /api/responders/match` | Show available units and recommended dispatch. |
+| Search sectors | `POST /api/search-probability` | Estimate likely search sectors from last-known telemetry. |
+
+The detailed implementation plan is maintained in `docs/superpowers/plans/2026-08-14-web-dashboard-user-tracking.md`.
+
 ## SOS Emergency Flow
 
 ```mermaid
