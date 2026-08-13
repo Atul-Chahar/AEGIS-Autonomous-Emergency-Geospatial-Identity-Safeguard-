@@ -123,7 +123,7 @@ fun ZoneDetailScreen(
             modifier = Modifier.fillMaxWidth(),
           ) {
             metaItem("⚠️", "Risk ${zone.riskScore}", "Live")
-            metaItem("🛰", "${zone.peers} peers", "Mesh")
+            metaItem("🛰", if (zone.peers > 0) "Available" else "Limited", "Offline Relay")
             metaItem("⏱", "—", "SOS ETA")
           }
 
@@ -148,7 +148,7 @@ fun ZoneDetailScreen(
 
           if (zone.peers > 0) {
             Text(
-              text = "Mesh network peers",
+              text = "Nearby relay support",
               style = MaterialTheme.typography.titleSmall,
               color = MaterialTheme.colorScheme.onSurface,
               fontWeight = FontWeight.Bold,
@@ -178,14 +178,14 @@ fun ZoneDetailScreen(
             Spacer(modifier = Modifier.height(12.dp))
             Text(
               text =
-                "Dispatch requires a live connection to the AEGIS emergency backend. " +
-                  "Your SOS payload includes your Tourist ID and current zone.",
+                "Emergency sharing uses your Tourist ID and current safety zone. " +
+                  "Delivery status appears only after a real transport confirms it.",
               style = MaterialTheme.typography.bodySmall,
               color = Ink.copy(alpha = 0.72f),
             )
             Spacer(modifier = Modifier.height(14.dp))
             SosButton(
-              dispatchLabel = "PRESS TO DISPATCH SOS",
+              dispatchLabel = "REQUEST EMERGENCY HELP",
               dispatching = emergencyState.dispatching,
               enabled = !emergencyState.dispatching,
               onClick = {

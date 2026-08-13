@@ -28,6 +28,9 @@ class HomeScreenTest {
               observeIdentity = GetTouristIdentityUseCase(DemoIdentityRepository()),
             ),
           onOpenZones = {},
+          onOpenActivity = {},
+          onOpenSafetyCenter = {},
+          onOpenTripSetup = {},
           onOpenTouristId = {},
           onOpenZoneDetail = {},
           onSos = {},
@@ -35,7 +38,7 @@ class HomeScreenTest {
       }
     }
     composeTestRule.onNodeWithText("Cherrapunji Ridge").assertIsDisplayed()
-    composeTestRule.onNodeWithText("Start Route").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Start Safe Journey").assertIsDisplayed()
     composeTestRule.onNodeWithText("TST-8F29X4").assertIsDisplayed()
   }
 }

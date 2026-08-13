@@ -11,6 +11,7 @@ import com.example.aegis.data.remote.dto.IncidentDto
 import com.example.aegis.data.remote.dto.SosRequestDto
 import com.example.aegis.data.remote.dto.SosResponseDto
 import com.example.aegis.domain.model.Breadcrumb
+import com.example.aegis.domain.model.RescuePacket
 import com.example.aegis.domain.model.SensorEventChunk
 import com.example.aegis.domain.model.SosDispatchResult
 import com.example.aegis.domain.model.SosRequest
@@ -18,6 +19,7 @@ import com.example.aegis.domain.model.Trip
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -178,7 +180,9 @@ class OutboxEmergencyRepositoryTest {
 
     assertTrue(result is SosDispatchResult.PendingSmsFallback)
     val saved = fakeOutboxDao.outboxMap.values.first()
-    assertTrue(saved.payloadJson.contains("\"lat\": null"))
+    val decoded = Json.decodeFromString<RescuePacket>(saved.payloadJson)
+    assertEquals(null, decoded.latitude)
+    assertEquals(null, decoded.longitude)
   }
 
   @Test
@@ -212,7 +216,8 @@ class OutboxEmergencyRepositoryTest {
     repository.dispatchSos(SosRequest(touristId = "TST-STALE"))
 
     val saved = fakeOutboxDao.outboxMap.values.first()
-    assertTrue("Payload must record isStale = true", saved.payloadJson.contains("\"isStale\": true"))
+    val decoded = Json.decodeFromString<RescuePacket>(saved.payloadJson)
+    assertTrue("Payload must record isStaleLocation = true", decoded.isStaleLocation)
   }
 
   private class FakeOutboxDao : OutboxDao {
@@ -256,6 +261,23 @@ class OutboxEmergencyRepositoryTest {
         outboxMap[packetId] = existing.copy(
           status = "FAILED",
           errorMessage = reason,
+          attemptCount = existing.attemptCount + 1,
+          lastAttemptTime = lastAttemptTime,
+        )
+      }
+    }
+
+    override suspend fun getFailedPackets(): List<OutboxEntity> {
+      return outboxMap.values
+        .filter { it.status == "FAILED" && it.attemptCount < 10 }
+        .sortedBy { it.createdAt }
+    }
+
+    override suspend fun markRetrying(packetId: String, lastAttemptTime: Long) {
+      val existing = outboxMap[packetId]
+      if (existing != null) {
+        outboxMap[packetId] = existing.copy(
+          status = "SENDING",
           attemptCount = existing.attemptCount + 1,
           lastAttemptTime = lastAttemptTime,
         )

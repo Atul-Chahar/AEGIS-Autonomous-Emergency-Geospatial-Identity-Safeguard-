@@ -13,7 +13,6 @@ import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
 import com.example.aegis.location.LocationResult
 import com.example.aegis.location.LocationSanityChecker
 import com.example.aegis.mesh.NearbyTransport
-import com.example.aegis.safety.CheckInStatus
 import com.example.aegis.safety.GeoPoint
 import com.example.aegis.safety.OfflineGeofenceEngine
 import com.example.aegis.safety.RouteDeviationEngine
@@ -59,7 +58,7 @@ class HomeViewModel(
   val featuredZone: StateFlow<SafetyZone?> =
     combine(zones, activePeerCount) { list, peers ->
       val base = list.firstOrNull() ?: return@combine null
-      base.copy(peers = peers) // Real peer count updated live
+      base.copy(peers = peers)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
   val identity: StateFlow<TouristIdentity?> =
@@ -92,20 +91,18 @@ class HomeViewModel(
         if (sanity.isValid) {
           val geofence = geofenceEngine.classifyLocation(breadcrumb.latitude, breadcrumb.longitude)
           val zoneName = geofence.matchedPolygonName ?: "Meghalaya Region"
-          val latStr = String.format(Locale.US, "%.4f° N", breadcrumb.latitude)
-          val lonStr = String.format(Locale.US, "%.4f° E", breadcrumb.longitude)
-          "$zoneName · $latStr, $lonStr (${breadcrumb.batteryPercent}% batt)"
+          "$zoneName - Location protection active - ${breadcrumb.batteryPercent}% battery"
         } else {
-          "Location signal degraded (${sanity.reason})"
+          "Location signal needs attention (${sanity.reason})"
         }
       } else {
-        "Location unavailable"
+        "Location protection ready"
       }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Location unavailable")
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Location protection ready")
 
   val routeDeviationText: StateFlow<String> =
     latestBreadcrumb.map { breadcrumb ->
-      if (breadcrumb == null) return@map "Route: On Corridor"
+      if (breadcrumb == null) return@map "Route guidance ready"
       val fix = LocationResult.Success(
         latitude = breadcrumb.latitude,
         longitude = breadcrumb.longitude,
@@ -124,11 +121,11 @@ class HomeViewModel(
       )
       val dev = deviationEngine.evaluateDeviation(fix, defaultRoute)
       if (dev.isDeviated) {
-        String.format(Locale.US, "⚠️ Route Deviation: +%.0fm off corridor", dev.effectiveDistanceMeters)
+        String.format(Locale.US, "You are %.0f m away from your planned trail.", dev.effectiveDistanceMeters)
       } else {
-        "Route: On Corridor (50m corridor)"
+        "You are on your planned trail."
       }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Route: On Corridor")
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Route guidance ready")
 
   val touristName: String
     get() = identity.value?.displayName ?: "Tourist"

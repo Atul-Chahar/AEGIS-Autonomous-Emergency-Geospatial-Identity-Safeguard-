@@ -1,6 +1,5 @@
 package com.example.aegis.ui.home
 
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -56,8 +55,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import com.example.aegis.Activity
 import com.example.aegis.Home
+import com.example.aegis.Map
 import com.example.aegis.TouristId
-import com.example.aegis.Zones
 import com.example.aegis.domain.model.SafetyZone
 import com.example.aegis.domain.model.TouristIdentity
 import com.example.aegis.domain.model.ZoneStatus
@@ -96,6 +95,9 @@ import com.example.aegis.ui.permissions.rememberLocationPermissionState
 fun HomeScreen(
   viewModel: HomeViewModel,
   onOpenZones: () -> Unit,
+  onOpenActivity: () -> Unit,
+  onOpenSafetyCenter: () -> Unit,
+  onOpenTripSetup: () -> Unit,
   onOpenTouristId: () -> Unit,
   onOpenZoneDetail: (String) -> Unit,
   onSos: () -> Unit,
@@ -117,7 +119,7 @@ fun HomeScreen(
   val navItems =
     listOf(
       BottomNavItem("Home", Icons.Filled.Home, Home),
-      BottomNavItem("Zones", Icons.Filled.Place, Zones),
+      BottomNavItem("Map", Icons.Filled.Place, Map),
       BottomNavItem("Activity", Icons.Filled.Notifications, Activity),
       BottomNavItem("ID", Icons.Filled.Person, TouristId),
     )
@@ -146,12 +148,17 @@ fun HomeScreen(
             color = Ink,
           )
           Text(
-            text = if (isMeshActive) "Mesh Active · $activePeerCount real peers" else "Your guardian is watching over you",
+            text = if (isMeshActive) "Offline relay available - $activePeerCount nearby" else "Your guardian is watching over you",
             style = MaterialTheme.typography.bodySmall,
             color = if (isMeshActive) SafeGreen else InkSoft,
           )
         }
-        GuardianWidget(status = featured?.status, isMeshActive = isMeshActive, peerCount = activePeerCount)
+        GuardianWidget(
+          status = featured?.status,
+          isMeshActive = isMeshActive,
+          peerCount = activePeerCount,
+          onClick = onOpenSafetyCenter,
+        )
       }
 
       // Hero — region tag + big title + scan pill
@@ -180,10 +187,10 @@ fun HomeScreen(
       ) {
         val categories =
           listOf(
-            "Guardian ID" to "🛡️",
-            "Geofence" to "📍",
-            "Mesh" to "📡",
-            "Risk" to "📊",
+            "Location" to "L",
+            "Journey Log" to "J",
+            "Offline Relay" to "R",
+            "Check-in" to "C",
           )
         categories.forEachIndexed { index, (label, emoji) ->
           FilterPill(
@@ -192,7 +199,7 @@ fun HomeScreen(
             selected = index == selectedCategory,
             onClick = {
               selectedCategory = index
-              if (label == "Guardian ID") onOpenTouristId()
+              if (label == "Journey Log") onOpenActivity()
             },
           )
         }
@@ -207,7 +214,7 @@ fun HomeScreen(
           routeDeviationText = routeDeviationText,
           onStartRoute = {
             if (!locationPermission.isGranted) locationPermission.request()
-            viewModel.startRoute(context, featured.id)
+            onOpenTripSetup()
           },
           onStopRoute = {
             viewModel.stopRoute(context)
@@ -236,10 +243,9 @@ fun HomeScreen(
       selected = Home,
       onSelect = { key: NavKey ->
         when (key) {
-          Zones -> onOpenZones()
+          Map -> onOpenZones()
           TouristId -> onOpenTouristId()
-          Activity ->
-            Toast.makeText(context, "📊 Activity log coming soon", Toast.LENGTH_SHORT).show()
+          Activity -> onOpenActivity()
           else -> Unit
         }
       },
@@ -262,11 +268,12 @@ private fun GuardianWidget(
   status: ZoneStatus?,
   isMeshActive: Boolean = false,
   peerCount: Int = 0,
+  onClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val (emoji, label) =
     if (isMeshActive) {
-      "📡" to "Mesh Active ($peerCount)"
+      "📡" to "Relay Available ($peerCount)"
     } else {
       when (status) {
         ZoneStatus.SAFE -> "🟢" to "Safe Zone"
@@ -277,6 +284,7 @@ private fun GuardianWidget(
       }
     }
   Surface(
+    onClick = onClick,
     modifier = modifier,
     shape = RoundedCornerShape(50),
     color = GlassSurface,
@@ -300,7 +308,7 @@ private fun GuardianWidget(
       Spacer(modifier = Modifier.width(10.dp))
       Column {
         Text(
-          text = if (isMeshActive) "Mesh Active" else "Guardian",
+          text = if (isMeshActive) "Relay Available" else "Guardian",
           style = MaterialTheme.typography.labelSmall,
           color = if (isMeshActive) SafeGreen else InkSoft,
         )
@@ -417,7 +425,7 @@ private fun FeaturedZoneCard(
 
       // Real BlackBox location fix display & Route Corridor Status
       Text(
-        text = if (isTracking) "🛰 Tracking: $locationText" else "📍 $locationText",
+        text = if (isTracking) "🛰 Journey Protection: $locationText" else "📍 $locationText",
         style = MaterialTheme.typography.labelSmall,
         color = if (isTracking) SafeGreen else Color.White.copy(alpha = 0.75f),
       )
@@ -441,7 +449,7 @@ private fun FeaturedZoneCard(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Text(
-              text = if (isTracking) "Stop Tracking" else "Start Route",
+              text = if (isTracking) "Stop Tracking" else "Start Safe Journey",
               style = MaterialTheme.typography.labelLarge,
               color = Color.White,
             )
@@ -542,9 +550,13 @@ private fun HomeScreenPreview() {
           blackBoxRepository = com.example.aegis.data.repository.demo.DemoBlackBoxRepository(),
         ),
       onOpenZones = {},
+      onOpenActivity = {},
+      onOpenSafetyCenter = {},
+      onOpenTripSetup = {},
       onOpenTouristId = {},
       onOpenZoneDetail = {},
       onSos = {},
     )
   }
 }
+

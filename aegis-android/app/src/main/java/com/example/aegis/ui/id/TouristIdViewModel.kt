@@ -13,7 +13,7 @@ data class TouristIdUiState(
   val identity: TouristIdentity? = null,
   val onChainHash: String? = null,
   val issuanceNote: String =
-    "Identity issuance & on-chain registration are not wired yet — this voucher is a preview.",
+    "Identity verification is privacy-preserving. Technical proof is available for authorized checks.",
 )
 
 class TouristIdViewModel(

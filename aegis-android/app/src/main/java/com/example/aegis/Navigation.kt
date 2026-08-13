@@ -11,11 +11,17 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.example.aegis.ui.AegisViewModelFactory
 import com.example.aegis.ui.EmergencyViewModel
+import com.example.aegis.ui.activity.ActivityScreen
+import com.example.aegis.ui.activity.JourneyBlackBoxScreen
 import com.example.aegis.ui.components.SosOverlay
 import com.example.aegis.ui.home.HomeScreen
 import com.example.aegis.ui.home.HomeViewModel
 import com.example.aegis.ui.id.TouristIdScreen
 import com.example.aegis.ui.id.TouristIdViewModel
+import com.example.aegis.ui.incident.IncidentCheckScreen
+import com.example.aegis.ui.map.MapScreen
+import com.example.aegis.ui.safety.SafetyCenterScreen
+import com.example.aegis.ui.trip.TripSetupScreen
 import com.example.aegis.ui.zone.ZoneDetailScreen
 import com.example.aegis.ui.zone.ZoneDetailViewModel
 import com.example.aegis.ui.zones.ZonesScreen
@@ -40,7 +46,10 @@ fun MainNavigation() {
           val homeViewModel: HomeViewModel = viewModel(factory = AegisViewModelFactory)
           HomeScreen(
             viewModel = homeViewModel,
-            onOpenZones = { navigateTo(backStack, Zones) },
+            onOpenZones = { navigateTo(backStack, Map) },
+            onOpenActivity = { navigateTo(backStack, Activity) },
+            onOpenSafetyCenter = { backStack.add(SafetyCenter) },
+            onOpenTripSetup = { backStack.add(TripSetup) },
             onOpenTouristId = { navigateTo(backStack, TouristId) },
             onOpenZoneDetail = { zoneId -> backStack.add(ZoneDetail(zoneId)) },
             onSos = emergencyViewModel::openOverlay,
@@ -52,9 +61,49 @@ fun MainNavigation() {
             viewModel = zonesViewModel,
             onBack = { backStack.removeLastOrNull() },
             onOpenHome = { navigateTo(backStack, Home) },
+            onOpenActivity = { navigateTo(backStack, Activity) },
             onOpenTouristId = { navigateTo(backStack, TouristId) },
             onOpenZoneDetail = { zoneId -> backStack.add(ZoneDetail(zoneId)) },
             onSos = emergencyViewModel::openOverlay,
+          )
+        }
+        entry<Map> {
+          MapScreen(
+            onOpenHome = { navigateTo(backStack, Home) },
+            onOpenActivity = { navigateTo(backStack, Activity) },
+            onOpenTouristId = { navigateTo(backStack, TouristId) },
+            onOpenSafetyCenter = { backStack.add(SafetyCenter) },
+            onOpenZoneDetail = { zoneId -> backStack.add(ZoneDetail(zoneId)) },
+            onSos = emergencyViewModel::openOverlay,
+          )
+        }
+        entry<Activity> {
+          ActivityScreen(
+            onOpenHome = { navigateTo(backStack, Home) },
+            onOpenMap = { navigateTo(backStack, Map) },
+            onOpenTouristId = { navigateTo(backStack, TouristId) },
+            onOpenSafetyCenter = { backStack.add(SafetyCenter) },
+            onOpenBlackBox = { backStack.add(JourneyBlackBox) },
+            onSos = emergencyViewModel::openOverlay,
+          )
+        }
+        entry<TripSetup> {
+          TripSetupScreen(
+            onBack = { backStack.removeLastOrNull() },
+            onStartJourney = { navigateTo(backStack, Home) },
+          )
+        }
+        entry<SafetyCenter> {
+          SafetyCenterScreen(onBack = { backStack.removeLastOrNull() })
+        }
+        entry<JourneyBlackBox> {
+          JourneyBlackBoxScreen(onBack = { backStack.removeLastOrNull() })
+        }
+        entry<IncidentCheck> {
+          IncidentCheckScreen(
+            onBack = { backStack.removeLastOrNull() },
+            onSafe = { backStack.removeLastOrNull() },
+            onNeedHelp = emergencyViewModel::openOverlay,
           )
         }
         entry<TouristId> {
@@ -63,7 +112,7 @@ fun MainNavigation() {
             viewModel = touristIdViewModel,
             onBack = { backStack.removeLastOrNull() },
             onOpenHome = { navigateTo(backStack, Home) },
-            onOpenZones = { navigateTo(backStack, Zones) },
+            onOpenZones = { navigateTo(backStack, Map) },
           )
         }
         entry<ZoneDetail> { detail ->

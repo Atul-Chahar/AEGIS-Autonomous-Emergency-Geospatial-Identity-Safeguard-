@@ -50,7 +50,7 @@ class EmergencyViewModel(
 
       _uiState.value = _uiState.value.copy(
         payloadPreview = "SOS:${identity.touristId} | lat:$latStr | lon:$lonStr | battery:$batStr",
-        statusMessage = "Ready to dispatch via Outbox",
+        statusMessage = "Emergency sharing ready",
       )
     }
   }
@@ -81,17 +81,17 @@ class EmergencyViewModel(
       _uiState.value = _uiState.value.copy(
         dispatching = true,
         dispatchResult = null,
-        statusMessage = "Writing to Outbox & Sending…",
+        statusMessage = "Recording emergency and trying available connections...",
         error = null,
       )
 
       val result = dispatchSos(request)
       val statusMsg = when (result) {
         is SosDispatchResult.Sent -> "Delivered via ${result.transport} (Ack: ${result.ackId})"
-        is SosDispatchResult.PendingSmsFallback -> "Saved to Outbox · Waiting for connectivity — SMS handoff ready"
+        is SosDispatchResult.PendingSmsFallback -> "No internet. Your emergency has been safely stored and will retry."
         is SosDispatchResult.Failed -> "Failed: ${result.reason}"
         is SosDispatchResult.NotAvailable -> "Not Available: ${result.reason}"
-        SosDispatchResult.Dispatched -> "Dispatched via Outbox"
+        SosDispatchResult.Dispatched -> "Emergency recorded and queued"
       }
 
       _uiState.value = _uiState.value.copy(
