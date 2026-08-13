@@ -1,16 +1,20 @@
 {
   "name": "aegis-backend",
   "version": "1.0.0",
-  "description": "AEGIS Real-Time Incident Response, Geofencing & Identity API Gateway",
+  "description": "AEGIS Real-Time Incident Response, PostGIS Geofencing & Identity Gateway",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node src/server.js"
+    "dev": "node src/server.js",
+    "test": "node --test test/backend.integration.test.js test/hazardConfidence.test.js"
   },
   "dependencies": {
     "@turf/turf": "^7.1.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.5",
     "ws": "^8.18.0"
   }
 }

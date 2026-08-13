@@ -4,6 +4,10 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.example.aegis.data.repository.demo.DemoIdentityRepository
+import com.example.aegis.data.repository.demo.DemoSafetyZoneRepository
+import com.example.aegis.domain.usecase.GetTouristIdentityUseCase
+import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
 import com.example.aegis.theme.AEGISTheme
 import org.junit.Rule
 import org.junit.Test
@@ -17,7 +21,17 @@ class HomeScreenTest {
   fun homeScreen_rendersCoreSafetyElements() {
     composeTestRule.setContent {
       AEGISTheme {
-        HomeScreen(onOpenZones = {}, onOpenTouristId = {}, onOpenZoneDetail = {})
+        HomeScreen(
+          viewModel =
+            HomeViewModel(
+              observeZones = ObserveSafetyZonesUseCase(DemoSafetyZoneRepository()),
+              observeIdentity = GetTouristIdentityUseCase(DemoIdentityRepository()),
+            ),
+          onOpenZones = {},
+          onOpenTouristId = {},
+          onOpenZoneDetail = {},
+          onSos = {},
+        )
       }
     }
     composeTestRule.onNodeWithText("Cherrapunji Ridge").assertIsDisplayed()

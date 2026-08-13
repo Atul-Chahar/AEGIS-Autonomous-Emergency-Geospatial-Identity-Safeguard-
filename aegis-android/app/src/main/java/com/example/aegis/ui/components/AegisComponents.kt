@@ -6,11 +6,9 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -30,11 +28,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -61,14 +59,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation3.runtime.NavKey
-import com.example.aegis.data.MockData
-import com.example.aegis.data.ZoneStatus
-import com.example.aegis.ui.state.AegisSampleState
-import com.example.aegis.ui.state.GuardianLevel
-import com.example.aegis.ui.state.GuardianSystemState
-import com.example.aegis.ui.state.SosFlowState
-import com.example.aegis.ui.state.SosStepStatus
-import com.example.aegis.ui.state.showsSuccess
+import com.example.aegis.domain.model.SosDispatchResult
+import com.example.aegis.domain.model.ZoneStatus
 import com.example.aegis.theme.CautionAmber
 import com.example.aegis.theme.DangerRed
 import com.example.aegis.theme.ForestDark
@@ -236,6 +228,7 @@ fun StatusPill(
       ZoneStatus.SAFE -> SafeGreen
       ZoneStatus.CAUTION -> CautionAmber
       ZoneStatus.HIGH_RISK -> DangerRed
+      ZoneStatus.UNKNOWN -> InkSoft
     }
   Surface(
     modifier = modifier,
@@ -305,7 +298,7 @@ fun MetaItem(
 }
 
 // ─────────────────────────────────────────────────────────────
-// AvatarStack — overlapping mesh-peer avatars (initials on sage
+// AvatarStack — overlapping nearby-support avatars (initials on sage
 // gradients, mockup style).
 // ─────────────────────────────────────────────────────────────
 private val avatarPalette =
@@ -601,165 +594,199 @@ private fun NavSlot(
 }
 
 // ─────────────────────────────────────────────────────────────
-// SosOverlay — full-screen emergency dispatch with a pulse
-// animation and dual-channel confirmation (the "peak moment").
+// SosOverlay — full-screen emergency dispatch with a pulse animation.
+// Shows exactly what the dispatch pipeline returns: the transport is not
+// connected yet, so the result is an honest NotAvailable — never a fake
+// "help en route".
 // ─────────────────────────────────────────────────────────────
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SosOverlay(
+  payloadPreview: String?,
+  dispatchResult: SosDispatchResult?,
+  onDispatch: () -> Unit,
   onDismiss: () -> Unit,
   modifier: Modifier = Modifier,
-  state: SosFlowState = AegisSampleState.sosOfflineSearching,
 ) {
-  var armed by remember { mutableStateOf(false) }
-
   Dialog(
     onDismissRequest = onDismiss,
     properties = DialogProperties(usePlatformDefaultWidth = false),
   ) {
     Box(
-      modifier = modifier.fillMaxSize().background(ForestDeep.copy(alpha = 0.76f)),
+      modifier = modifier.fillMaxSize().background(ForestDeep.copy(alpha = 0.72f)),
       contentAlignment = Alignment.Center,
     ) {
       GlassCard(
-        modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth(),
+        modifier = Modifier.padding(horizontal = 28.dp).fillMaxWidth(),
         shape = RoundedCornerShape(32.dp),
         color = Color(0xFAFFFDF8),
         contentPadding = PaddingValues(24.dp),
       ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-          Box(modifier = Modifier.fillMaxWidth().height(92.dp), contentAlignment = Alignment.Center) {
+          Box(
+            modifier = Modifier.fillMaxWidth().height(96.dp),
+            contentAlignment = Alignment.Center,
+          ) {
             PulsingRing()
-            Box(modifier = Modifier.size(64.dp).clip(CircleShape).background(DangerRed), contentAlignment = Alignment.Center) {
-              Text(text = "SOS", style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Box(
+              modifier = Modifier.size(64.dp).clip(CircleShape).background(DangerRed),
+              contentAlignment = Alignment.Center,
+            ) {
+              Text(text = "🚨", fontSize = 28.sp)
             }
           }
 
           Text(
-            text = state.title,
+            text = "EMERGENCY SOS",
             style = MaterialTheme.typography.headlineMedium,
             color = DangerRed,
             modifier = Modifier.align(Alignment.CenterHorizontally),
           )
-          Text(text = state.message, style = MaterialTheme.typography.bodyMedium, color = InkSoft)
-
-          state.offlineMessage?.let {
-            Surface(
-              shape = RoundedCornerShape(16.dp),
-              color = CautionAmber.copy(alpha = 0.14f),
-              border = BorderStroke(1.dp, CautionAmber.copy(alpha = 0.42f)),
-            ) {
-              Text(text = it, style = MaterialTheme.typography.bodySmall, color = Ink, modifier = Modifier.padding(12.dp))
-            }
-          }
-
-          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            state.steps.forEach { step -> SosStepRow(label = step.label, status = step.status) }
-          }
+          Text(
+            text =
+              "Your tourist ID and status are prepared locally. Dispatch transmits the moment an " +
+                "emergency transport is connected.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = InkSoft,
+          )
 
           Surface(
-            modifier =
-              Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .combinedClickable(onClick = { armed = false }, onLongClick = { armed = true }),
-            shape = RoundedCornerShape(18.dp),
-            color = if (armed) ForestDark else DangerRed,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+            shape = RoundedCornerShape(14.dp),
+            color = ForestDark.copy(alpha = 0.08f),
+            border = BorderStroke(1.dp, ForestDark.copy(alpha = 0.12f)),
           ) {
-            Box(contentAlignment = Alignment.Center) {
+            Column(modifier = Modifier.padding(12.dp)) {
               Text(
-                text = if (armed) "SOS READY FOR REAL TRANSPORT" else "PRESS AND HOLD TO CONFIRM",
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White,
+                text = payloadPreview ?: "Preparing payload…",
+                style = MaterialTheme.typography.labelMedium,
+                color = InkSoft,
+              )
+              Spacer(modifier = Modifier.height(4.dp))
+              Text(
+                text = "Emergency sharing uses available connections only. No delivery is shown until confirmed.",
+                style = MaterialTheme.typography.labelSmall,
+                color = InkSoft.copy(alpha = 0.8f),
               )
             }
           }
 
-          TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(text = "Cancel", color = InkSoft, style = MaterialTheme.typography.labelLarge)
+          when (dispatchResult) {
+            is SosDispatchResult.Sent ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = SafeGreen.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, SafeGreen.copy(alpha = 0.5f)),
+              ) {
+                Row(
+                  modifier = Modifier.fillMaxWidth().padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = SafeGreen,
+                    modifier = Modifier.size(20.dp),
+                  )
+                  Spacer(modifier = Modifier.width(10.dp))
+                  Text(
+                    text = "Delivered via ${dispatchResult.transport} (Ack: ${dispatchResult.ackId})",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SafeGreen,
+                  )
+                }
+              }
+            is SosDispatchResult.PendingSmsFallback ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = CautionAmber.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, CautionAmber.copy(alpha = 0.5f)),
+              ) {
+                Text(
+                  text = "No internet. Your emergency has been safely stored. ${dispatchResult.reason}",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = CautionAmber,
+                  modifier = Modifier.padding(12.dp),
+                )
+              }
+            is SosDispatchResult.Failed ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = DangerRed.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f)),
+              ) {
+                Text(
+                  text = "❌ Failed: ${dispatchResult.reason}",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = DangerRed,
+                  modifier = Modifier.padding(12.dp),
+                )
+              }
+            is SosDispatchResult.NotAvailable ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = CautionAmber.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, CautionAmber.copy(alpha = 0.5f)),
+              ) {
+                Text(
+                  text = "⚠ ${dispatchResult.reason}",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = CautionAmber,
+                  modifier = Modifier.padding(12.dp),
+                )
+              }
+            SosDispatchResult.Dispatched ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = SafeGreen.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, SafeGreen.copy(alpha = 0.5f)),
+              ) {
+                Row(
+                  modifier = Modifier.fillMaxWidth().padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = SafeGreen,
+                    modifier = Modifier.size(20.dp),
+                  )
+                  Spacer(modifier = Modifier.width(10.dp))
+                  Text(
+                    text = "Emergency recorded and queued",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SafeGreen,
+                  )
+                }
+              }
+            null -> Unit
+          }
+
+          Button(
+            onClick = onDispatch,
+            shape = RoundedCornerShape(16.dp),
+            colors =
+              ButtonDefaults.buttonColors(
+                containerColor = DangerRed,
+                contentColor = Color.White,
+              ),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+          ) {
+            Text(
+              text = "REQUEST EMERGENCY HELP",
+              style = MaterialTheme.typography.labelLarge,
+            )
+          }
+
+          TextButton(
+            onClick = onDismiss,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+          ) {
+            Text(
+              text = "Cancel",
+              color = InkSoft,
+              style = MaterialTheme.typography.labelLarge,
+            )
           }
         }
-      }
-    }
-  }
-}
-
-@Composable
-private fun SosStepRow(label: String, status: SosStepStatus, modifier: Modifier = Modifier) {
-  val color =
-    when (status) {
-      SosStepStatus.SUCCEEDED -> SafeGreen
-      SosStepStatus.IN_PROGRESS -> CautionAmber
-      SosStepStatus.FAILED -> DangerRed
-      SosStepStatus.PENDING -> InkSoft
-    }
-  Surface(
-    modifier = modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(14.dp),
-    color = color.copy(alpha = if (status == SosStepStatus.PENDING) 0.08f else 0.13f),
-    border = BorderStroke(1.dp, color.copy(alpha = 0.36f)),
-  ) {
-    Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-      if (status.showsSuccess) {
-        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
-      } else {
-        Box(modifier = Modifier.size(18.dp).clip(CircleShape).background(color.copy(alpha = 0.24f)))
-      }
-      Spacer(modifier = Modifier.width(10.dp))
-      Text(text = label, style = MaterialTheme.typography.labelMedium, color = Ink, modifier = Modifier.weight(1f))
-      Text(text = statusLabel(status), style = MaterialTheme.typography.labelSmall, color = color)
-    }
-  }
-}
-
-private fun statusLabel(status: SosStepStatus): String =
-  when (status) {
-    SosStepStatus.PENDING -> "Waiting"
-    SosStepStatus.IN_PROGRESS -> "Trying"
-    SosStepStatus.SUCCEEDED -> "Done"
-    SosStepStatus.FAILED -> "Not available"
-  }
-
-@Composable
-fun GuardianStatePill(
-  state: GuardianSystemState,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier,
-  dark: Boolean = false,
-) {
-  val color =
-    when (state.level) {
-      GuardianLevel.ACTIVE -> SafeGreen
-      GuardianLevel.LIMITED -> SunYellow
-      GuardianLevel.ATTENTION -> CautionAmber
-      GuardianLevel.EMERGENCY -> DangerRed
-    }
-  Surface(
-    onClick = onClick,
-    modifier = modifier,
-    shape = RoundedCornerShape(50),
-    color = if (dark) GlassOnImage else GlassSurface,
-    border = BorderStroke(1.dp, if (dark) GlassOnImageBorder else color.copy(alpha = 0.42f)),
-  ) {
-    Row(
-      modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
-      Spacer(modifier = Modifier.width(8.dp))
-      Column {
-        Text(
-          text = state.level.title,
-          style = MaterialTheme.typography.labelMedium,
-          color = if (dark) Color.White else Ink,
-        )
-        Text(
-          text = state.level.subtitle,
-          style = MaterialTheme.typography.labelSmall,
-          color = if (dark) Color.White.copy(alpha = 0.72f) else InkSoft,
-          maxLines = 1,
-        )
       }
     }
   }
@@ -840,4 +867,97 @@ fun SunFab(
       )
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// BackButton — frosted circular back arrow (GlassIconButton + ArrowBack).
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun BackButton(
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  dark: Boolean = false,
+) {
+  GlassIconButton(
+    icon = Icons.Filled.ArrowBack,
+    contentDescription = "Back",
+    onClick = onClick,
+    modifier = modifier,
+    dark = dark,
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// SosButton — full-width red dispatch button with honest states.
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun SosButton(
+  dispatchLabel: String,
+  dispatching: Boolean,
+  enabled: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Button(
+    onClick = onClick,
+    enabled = enabled,
+    shape = RoundedCornerShape(16.dp),
+    colors = ButtonDefaults.buttonColors(containerColor = DangerRed, contentColor = Color.White),
+    modifier = modifier.fillMaxWidth().height(54.dp),
+  ) {
+    Text(
+      text = if (dispatching) "DISPATCHING…" else dispatchLabel,
+      style = MaterialTheme.typography.labelLarge,
+    )
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// RiskBar — compact gradient risk band (used in zone detail card).
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun RiskBar(score: Int, modifier: Modifier = Modifier) {
+  val bandColor =
+    when {
+      score >= 61 -> DangerRed
+      score >= 31 -> CautionAmber
+      else -> SafeGreen
+    }
+  BoxWithConstraints(
+    modifier = modifier.height(10.dp).clip(RoundedCornerShape(50)),
+  ) {
+    Box(
+      modifier =
+        Modifier
+          .fillMaxSize()
+          .background(Brush.horizontalGradient(listOf(SafeGreen, CautionAmber, DangerRed))),
+    )
+    val markerTravel = maxWidth - 12.dp
+    Box(
+      modifier =
+        Modifier
+          .offset(x = markerTravel * (score.coerceIn(0, 100) / 100f))
+          .size(12.dp)
+          .clip(CircleShape)
+          .background(Color.White)
+          .border(2.dp, bandColor, CircleShape),
+    )
+  }
+}
+
+// lowercase convenience aliases used by detail screens
+@Composable
+fun metaItem(emoji: String, text: String, label: String = "", modifier: Modifier = Modifier) {
+  Column(modifier = modifier) {
+    MetaItem(emoji = emoji, text = text)
+    if (label.isNotEmpty()) {
+      Spacer(modifier = Modifier.height(2.dp))
+      Text(text = label, style = MaterialTheme.typography.labelSmall, color = InkSoft)
+    }
+  }
+}
+
+@Composable
+fun avatarStack(peers: Int, modifier: Modifier = Modifier) {
+  AvatarStack(peers = peers, modifier = modifier)
 }

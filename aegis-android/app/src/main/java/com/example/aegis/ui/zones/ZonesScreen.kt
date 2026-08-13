@@ -40,9 +40,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,14 +50,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import com.example.aegis.Activity
 import com.example.aegis.Home
 import com.example.aegis.TouristId
 import com.example.aegis.Zones
-import com.example.aegis.data.MockData
-import com.example.aegis.data.SafetyZone
-import com.example.aegis.data.ZoneStatus
+import com.example.aegis.data.repository.demo.DemoSafetyZoneRepository
+import com.example.aegis.domain.model.SafetyZone
+import com.example.aegis.domain.model.ZoneStatus
+import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
 import com.example.aegis.theme.ForestDark
 import com.example.aegis.theme.GlassBorder
 import com.example.aegis.theme.GlassSurface
@@ -68,6 +67,7 @@ import com.example.aegis.theme.GlassSurfaceStrong
 import com.example.aegis.theme.Ink
 import com.example.aegis.theme.InkSoft
 import com.example.aegis.theme.SageSoft
+import com.example.aegis.ui.ZoneArtwork
 import com.example.aegis.ui.components.AegisBackground
 import com.example.aegis.ui.components.AegisBottomNavScaffold
 import com.example.aegis.ui.components.AvatarStack
@@ -76,28 +76,27 @@ import com.example.aegis.ui.components.FilterPill
 import com.example.aegis.ui.components.GlassIconButton
 import com.example.aegis.ui.components.MetaItem
 import com.example.aegis.ui.components.RegionTag
-import com.example.aegis.ui.components.SosOverlay
 import com.example.aegis.ui.components.StatusPill
 
 @Composable
 fun ZonesScreen(
+  viewModel: ZonesViewModel,
   onBack: () -> Unit,
   onOpenHome: () -> Unit,
   onOpenTouristId: () -> Unit,
   onOpenZoneDetail: (String) -> Unit,
+  onSos: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  var sosVisible by remember { mutableStateOf(false) }
-  var filter by remember { mutableStateOf<ZoneStatus?>(null) }
   val context = LocalContext.current
-  val active = MockData.zoneById(MockData.activeZoneId)
-  val zones =
-    if (filter == null) MockData.zones else MockData.zones.filter { it.status == filter }
+  val zones by viewModel.filteredZones.collectAsStateWithLifecycle()
+  val active by viewModel.activeZone.collectAsStateWithLifecycle()
+  val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
 
   val navItems =
     listOf(
       BottomNavItem("Home", Icons.Filled.Home, Home),
-      BottomNavItem("Zones", Icons.Filled.Place, Zones),
+      BottomNavItem("Map", Icons.Filled.Place, Zones),
       BottomNavItem("Activity", Icons.Filled.Notifications, Activity),
       BottomNavItem("ID", Icons.Filled.Person, TouristId),
     )
@@ -138,32 +137,54 @@ fun ZonesScreen(
         }
       }
 
-      Text(
-        text = "Safety Zones",
-        style = MaterialTheme.typography.displayMedium,
-        color = Ink,
-      )
-      Text(
-        text = "${MockData.zones.size} guarded routes near you",
-        style = MaterialTheme.typography.bodyMedium,
-        color = InkSoft,
-      )
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom,
+      ) {
+        Column {
+          Text(
+            text = "Map",
+            style = MaterialTheme.typography.displayMedium,
+            color = Ink,
+          )
+          Text(
+            text = "Safety layers and route areas near you",
+            style = MaterialTheme.typography.bodySmall,
+            color = InkSoft,
+          )
+        }
+        Surface(
+          shape = RoundedCornerShape(50),
+          color = Color(0xFFF5A623).copy(alpha = 0.14f),
+          border = BorderStroke(1.dp, Color(0xFFF5A623).copy(alpha = 0.5f)),
+        ) {
+          Text(
+            text = "PREVIEW",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFFF5A623),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+          )
+        }
+      }
 
-      // Active expanded card (mockup's dark top card)
-      ActiveZoneCard(zone = active, onClick = { onOpenZoneDetail(active.id) })
+      // Active expanded card (featured zone)
+      if (active != null) {
+        ActiveZoneCard(zone = active!!, onClick = { onOpenZoneDetail(active!!.id) })
+      }
 
       // Status filter pills
       Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
       ) {
-        FilterPill(text = "All", selected = filter == null, onClick = { filter = null })
+        FilterPill(text = "All", selected = selectedFilter == null, onClick = { viewModel.setFilter(null) })
         ZoneStatus.entries.forEach { status ->
           FilterPill(
             text = status.label,
             emoji = status.emoji,
-            selected = filter == status,
-            onClick = { filter = status },
+            selected = selectedFilter == status,
+            onClick = { viewModel.setFilter(status) },
           )
         }
       }
@@ -184,7 +205,7 @@ fun ZonesScreen(
           else -> Unit
         }
       },
-      onSos = { sosVisible = true },
+      onSos = onSos,
       modifier =
         Modifier
           .align(Alignment.BottomCenter)
@@ -192,10 +213,6 @@ fun ZonesScreen(
           .padding(horizontal = 20.dp)
           .padding(bottom = 10.dp),
     )
-
-    if (sosVisible) {
-      SosOverlay(onDismiss = { sosVisible = false })
-    }
   }
 }
 
@@ -244,7 +261,7 @@ private fun ActiveZoneCard(
       Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         MetaItem(emoji = "📅", text = zone.dates, dark = true)
         MetaItem(emoji = "📍", text = zone.elevation, dark = true)
-        MetaItem(emoji = "📡", text = "${zone.peers} peers", dark = true)
+        MetaItem(emoji = "??", text = if (zone.peers > 0) "Relay ready" else "Relay limited", dark = true)
       }
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -255,7 +272,7 @@ private fun ActiveZoneCard(
           AvatarStack(peers = zone.peers, dark = true)
           Spacer(modifier = Modifier.width(10.dp))
           Text(
-            text = "peers in mesh",
+            text = "nearby relay support",
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.7f),
           )
@@ -282,9 +299,7 @@ private fun ActiveZoneCard(
 }
 
 // ─────────────────────────────────────────────────────────────
-// StackedZoneCards — peek-through glass cards behind the active
-// card, each with image + region + status (mockup "Popular"
-// stack).
+// StackedZoneCards — peek-through glass cards behind the active card.
 // ─────────────────────────────────────────────────────────────
 @Composable
 private fun StackedZoneCards(
@@ -333,7 +348,7 @@ private fun StackedZoneCards(
             modifier = Modifier.size(76.dp).clip(RoundedCornerShape(18.dp)).background(SageSoft),
           ) {
             Image(
-              painter = painterResource(id = zone.imageRes),
+              painter = painterResource(id = ZoneArtwork.imageFor(zone.id)),
               contentDescription = zone.name,
               contentScale = ContentScale.Crop,
               modifier = Modifier.fillMaxSize(),
@@ -379,6 +394,14 @@ private fun StackedZoneCards(
 @Composable
 private fun ZonesScreenPreview() {
   com.example.aegis.theme.AEGISTheme {
-    ZonesScreen(onBack = {}, onOpenHome = {}, onOpenTouristId = {}, onOpenZoneDetail = {})
+    ZonesScreen(
+      viewModel = ZonesViewModel(ObserveSafetyZonesUseCase(DemoSafetyZoneRepository())),
+      onBack = {},
+      onOpenHome = {},
+      onOpenTouristId = {},
+      onOpenZoneDetail = {},
+      onSos = {},
+    )
   }
 }
+
