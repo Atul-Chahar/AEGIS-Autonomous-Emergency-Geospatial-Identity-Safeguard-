@@ -4,6 +4,7 @@ const http = require('http');
 
 // Start backend server in test mode
 process.env.PORT = '5099';
+const db = require('../src/database/pool');
 const server = require('../src/server');
 
 function makeRequest(path, method = 'GET', body = null, headers = {}) {
@@ -44,6 +45,16 @@ function makeRequest(path, method = 'GET', body = null, headers = {}) {
 test('AEGIS Backend Integration Tests', async (t) => {
   t.after(() => {
     server.close();
+  });
+
+  t.beforeEach(() => {
+    const store = db.getStore();
+    store.trips = new Map();
+    store.breadcrumbs = [];
+    store.safetyZones = [];
+    store.responderUnits = [];
+    store.hazardReports = [];
+    store.hazardEvents = [];
   });
 
   await t.test('GET /api/health returns 200 OK and database status', async () => {
@@ -98,11 +109,28 @@ test('AEGIS Backend Integration Tests', async (t) => {
     assert.equal(res2.data.incidentId, incidentId);
   });
 
-  await t.test('GET /api/geofences returns safety zones', async () => {
+  await t.test('GET /api/trips returns empty array when backend has no active trips', async () => {
+    const res = await makeRequest('/api/trips');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.data, []);
+  });
+
+  await t.test('GET /api/breadcrumbs/:tripId returns empty array when backend has no trail', async () => {
+    const res = await makeRequest('/api/breadcrumbs/TRIP-MISSING');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.data, []);
+  });
+
+  await t.test('GET /api/geofences returns empty array when backend has no zones', async () => {
     const res = await makeRequest('/api/geofences');
     assert.equal(res.status, 200);
-    assert.ok(Array.isArray(res.data));
-    assert.ok(res.data.length >= 3);
+    assert.deepEqual(res.data, []);
+  });
+
+  await t.test('GET /api/responders returns empty array when backend has no responder units', async () => {
+    const res = await makeRequest('/api/responders');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.data, []);
   });
 
   await t.test('POST /api/hazards handles spatial report creation', async () => {

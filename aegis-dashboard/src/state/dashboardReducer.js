@@ -347,5 +347,5 @@ function getRecordId(record) {
 }
 
 function inferFixtureSource(record) {
-  return String(record.id || '').startsWith('TRIP-2026-') ? 'FIXTURE' : record.source || 'GPS';
+  return record.source || 'GPS';
 }

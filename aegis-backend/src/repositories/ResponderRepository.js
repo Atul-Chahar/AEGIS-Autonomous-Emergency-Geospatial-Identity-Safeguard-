@@ -1,6 +1,5 @@
 const db = require('../database/pool');
 const rescueEngine = require('../geospatial/RescueabilityEngine');
-const devFixtures = require('../database/seeds/dev_fixtures');
 
 class ResponderRepository {
   async getAllResponders() {
@@ -8,17 +7,16 @@ class ResponderRepository {
       const res = await db.query('SELECT * FROM responder_units ORDER BY name ASC;');
       if (res.rows.length > 0) return res.rows;
     }
-    return db.getStore().responderUnits || devFixtures.devResponders;
+    return db.getStore().responderUnits || [];
   }
 
   async matchResponders(lat, lon, requiredCapabilities = ['MEDICAL', 'ROPE']) {
     const all = await this.getAllResponders();
-    const routeSegments = devFixtures.devRouteSegments;
 
     const evaluation = rescueEngine.evaluateRescueability(
       { lat, lon, requiredCapabilities },
       all,
-      routeSegments
+      []
     );
 
     return evaluation;
