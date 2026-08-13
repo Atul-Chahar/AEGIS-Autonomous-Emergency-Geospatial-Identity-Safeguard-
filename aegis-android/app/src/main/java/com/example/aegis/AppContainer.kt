@@ -50,6 +50,12 @@ class AppContainer(context: Context) {
   val routeDeviationEngine by lazy { com.example.aegis.safety.RouteDeviationEngine() }
   val safetyCheckInManager by lazy { com.example.aegis.safety.SafetyCheckInManager(checkInRepository) }
 
+  // Real Peer Relay Mesh components
+  val packetDeduplicator by lazy { com.example.aegis.mesh.PacketDeduplicator() }
+  val relayInbox by lazy { com.example.aegis.mesh.RelayInbox(database.relayInboxDao(), packetDeduplicator) }
+  val relayOutbox by lazy { com.example.aegis.mesh.RelayOutbox(database.relayInboxDao()) }
+  val nearbyTransport by lazy { com.example.aegis.mesh.NearbyTransport(appContext, relayInbox) }
+
   // Real sensors (permission-gated at feature start).
   val locationProvider: LocationProvider = AndroidLocationProvider(appContext)
   val activityRecognitionProvider: ActivityRecognitionProvider =

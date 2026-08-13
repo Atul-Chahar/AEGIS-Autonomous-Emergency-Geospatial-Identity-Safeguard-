@@ -37,6 +37,7 @@ object AegisViewModelFactory : ViewModelProvider.Factory {
             geofenceEngine = container.offlineGeofenceEngine,
             deviationEngine = container.routeDeviationEngine,
             checkInManager = container.safetyCheckInManager,
+            nearbyTransport = container.nearbyTransport,
           )
         }
 

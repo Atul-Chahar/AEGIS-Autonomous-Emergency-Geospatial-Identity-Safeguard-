@@ -17,6 +17,7 @@ ksp = "2.3.9"
 room = "2.8.2"
 workManager = "2.11.0"
 playServicesLocation = "21.2.0"
+playServicesNearby = "19.3.0"
 okhttp = "5.3.1"
 kotlinxSerializationJson = "1.9.0"
 robolectric = "4.11.1"
@@ -48,6 +49,7 @@ room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workManager" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
+play-services-nearby = { module = "com.google.android.gms:play-services-nearby", version.ref = "playServicesNearby" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }

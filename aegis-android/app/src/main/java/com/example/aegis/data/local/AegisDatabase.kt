@@ -7,12 +7,14 @@ import androidx.room.RoomDatabase
 import com.example.aegis.data.local.dao.BreadcrumbDao
 import com.example.aegis.data.local.dao.CheckInDao
 import com.example.aegis.data.local.dao.OutboxDao
+import com.example.aegis.data.local.dao.RelayInboxDao
 import com.example.aegis.data.local.dao.SensorEventChunkDao
 import com.example.aegis.data.local.dao.TripDao
 import com.example.aegis.data.local.dao.ZoneDao
 import com.example.aegis.data.local.entity.BreadcrumbEntity
 import com.example.aegis.data.local.entity.CheckInEntity
 import com.example.aegis.data.local.entity.OutboxEntity
+import com.example.aegis.data.local.entity.RelayInboxEntity
 import com.example.aegis.data.local.entity.SensorEventChunkEntity
 import com.example.aegis.data.local.entity.TripEntity
 import com.example.aegis.data.local.entity.ZoneEntity
@@ -25,8 +27,9 @@ import com.example.aegis.data.local.entity.ZoneEntity
     BreadcrumbEntity::class,
     SensorEventChunkEntity::class,
     OutboxEntity::class,
+    RelayInboxEntity::class,
   ],
-  version = 3,
+  version = 4,
   exportSchema = false,
 )
 abstract class AegisDatabase : RoomDatabase() {
@@ -36,6 +39,7 @@ abstract class AegisDatabase : RoomDatabase() {
   abstract fun breadcrumbDao(): BreadcrumbDao
   abstract fun sensorEventChunkDao(): SensorEventChunkDao
   abstract fun outboxDao(): OutboxDao
+  abstract fun relayInboxDao(): RelayInboxDao
 
   companion object {
     @Volatile private var instance: AegisDatabase? = null

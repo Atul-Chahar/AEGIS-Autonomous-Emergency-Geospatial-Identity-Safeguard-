@@ -12,15 +12,17 @@ import com.example.aegis.domain.usecase.GetTouristIdentityUseCase
 import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
 import com.example.aegis.location.LocationResult
 import com.example.aegis.location.LocationSanityChecker
+import com.example.aegis.mesh.NearbyTransport
 import com.example.aegis.safety.CheckInStatus
+import com.example.aegis.safety.GeoPoint
 import com.example.aegis.safety.OfflineGeofenceEngine
 import com.example.aegis.safety.RouteDeviationEngine
 import com.example.aegis.safety.SafetyCheckInManager
 import com.example.aegis.safety.TrekRoute
-import com.example.aegis.safety.GeoPoint
 import com.example.aegis.service.TripTrackingService
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.util.Locale
@@ -33,13 +35,31 @@ class HomeViewModel(
   private val geofenceEngine: OfflineGeofenceEngine = OfflineGeofenceEngine(),
   private val deviationEngine: RouteDeviationEngine = RouteDeviationEngine(),
   val checkInManager: SafetyCheckInManager? = null,
+  val nearbyTransport: NearbyTransport? = null,
 ) : ViewModel() {
 
   val zones: StateFlow<List<SafetyZone>> =
     observeZones().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+  val activePeerCount: StateFlow<Int> =
+    nearbyTransport?.activePeers?.map { it.size }
+      ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+      ?: MutableStateFlow(0)
+
+  val isMeshActive: StateFlow<Boolean> =
+    if (nearbyTransport != null) {
+      combine(nearbyTransport.isAdvertising, nearbyTransport.isDiscovering, nearbyTransport.activePeers) { adv, disc, peers ->
+        adv || disc || peers.isNotEmpty()
+      }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    } else {
+      MutableStateFlow(false)
+    }
+
   val featuredZone: StateFlow<SafetyZone?> =
-    zones.map { it.firstOrNull() }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    combine(zones, activePeerCount) { list, peers ->
+      val base = list.firstOrNull() ?: return@combine null
+      base.copy(peers = peers) // Real peer count updated live
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
   val identity: StateFlow<TouristIdentity?> =
     observeIdentity()
@@ -115,9 +135,12 @@ class HomeViewModel(
   fun startRoute(context: Context, plannedRouteId: String? = null) {
     val touristId = identity.value?.touristId ?: "TST-DEFAULT"
     TripTrackingService.start(context, touristId, plannedRouteId)
+    nearbyTransport?.startAdvertising()
+    nearbyTransport?.startDiscovery()
   }
 
   fun stopRoute(context: Context) {
     TripTrackingService.stop(context)
+    nearbyTransport?.stopAll()
   }
 }

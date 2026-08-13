@@ -107,8 +107,9 @@ dependencies {
   // Background work (offline-first check-ins)
   implementation(libs.androidx.work.runtime.ktx)
 
-  // Location + Activity Recognition (Google Play Services)
+  // Location + Activity Recognition + Nearby Connections (Google Play Services)
   implementation(libs.play.services.location)
+  implementation(libs.play.services.nearby)
 
   // Network: OkHttp with WebSocket support + kotlinx.serialization JSON
   implementation(libs.okhttp)

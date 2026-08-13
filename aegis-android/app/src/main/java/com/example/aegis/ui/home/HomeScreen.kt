@@ -109,6 +109,8 @@ fun HomeScreen(
   val isTracking by viewModel.isTrackingActive.collectAsStateWithLifecycle()
   val locationText by viewModel.locationText.collectAsStateWithLifecycle()
   val routeDeviationText by viewModel.routeDeviationText.collectAsStateWithLifecycle()
+  val isMeshActive by viewModel.isMeshActive.collectAsStateWithLifecycle()
+  val activePeerCount by viewModel.activePeerCount.collectAsStateWithLifecycle()
 
   val navItems =
     listOf(
@@ -142,12 +144,12 @@ fun HomeScreen(
             color = Ink,
           )
           Text(
-            text = "Your guardian is watching over you",
+            text = if (isMeshActive) "Mesh Active · $activePeerCount real peers" else "Your guardian is watching over you",
             style = MaterialTheme.typography.bodySmall,
-            color = InkSoft,
+            color = if (isMeshActive) SafeGreen else InkSoft,
           )
         }
-        GuardianWidget(status = featured?.status)
+        GuardianWidget(status = featured?.status, isMeshActive = isMeshActive, peerCount = activePeerCount)
       }
 
       // Hero — region tag + big title + scan pill
@@ -254,20 +256,29 @@ fun HomeScreen(
 // Guardian widget — live safety status of the featured zone.
 // ─────────────────────────────────────────────────────────────
 @Composable
-private fun GuardianWidget(status: ZoneStatus?, modifier: Modifier = Modifier) {
+private fun GuardianWidget(
+  status: ZoneStatus?,
+  isMeshActive: Boolean = false,
+  peerCount: Int = 0,
+  modifier: Modifier = Modifier,
+) {
   val (emoji, label) =
-    when (status) {
-      ZoneStatus.SAFE -> "🟢" to "Safe Zone"
-      ZoneStatus.CAUTION -> "🟡" to "Caution Zone"
-      ZoneStatus.HIGH_RISK -> "🔴" to "High Risk"
-      ZoneStatus.UNKNOWN -> "⚪" to "Unknown"
-      null -> "🛰" to "Guarding"
+    if (isMeshActive) {
+      "📡" to "Mesh Active ($peerCount)"
+    } else {
+      when (status) {
+        ZoneStatus.SAFE -> "🟢" to "Safe Zone"
+        ZoneStatus.CAUTION -> "🟡" to "Caution Zone"
+        ZoneStatus.HIGH_RISK -> "🔴" to "High Risk"
+        ZoneStatus.UNKNOWN -> "⚪" to "Unknown"
+        null -> "🛰" to "Guarding"
+      }
     }
   Surface(
     modifier = modifier,
     shape = RoundedCornerShape(50),
     color = GlassSurface,
-    border = BorderStroke(1.dp, GlassBorder),
+    border = BorderStroke(1.dp, if (isMeshActive) SafeGreen.copy(alpha = 0.6f) else GlassBorder),
   ) {
     Row(
       modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -278,18 +289,18 @@ private fun GuardianWidget(status: ZoneStatus?, modifier: Modifier = Modifier) {
           Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(SafeGreen.copy(alpha = 0.16f))
+            .background(if (isMeshActive) SafeGreen.copy(alpha = 0.25f) else SafeGreen.copy(alpha = 0.16f))
             .border(1.dp, SafeGreen.copy(alpha = 0.55f), CircleShape),
         contentAlignment = Alignment.Center,
       ) {
-        Text(text = "🛰", fontSize = 16.sp)
+        Text(text = if (isMeshActive) "📡" else "🛰", fontSize = 16.sp)
       }
       Spacer(modifier = Modifier.width(10.dp))
       Column {
         Text(
-          text = "Guardian",
+          text = if (isMeshActive) "Mesh Active" else "Guardian",
           style = MaterialTheme.typography.labelSmall,
-          color = InkSoft,
+          color = if (isMeshActive) SafeGreen else InkSoft,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text(text = emoji, fontSize = 10.sp)
