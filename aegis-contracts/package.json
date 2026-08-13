@@ -17,7 +17,7 @@
   "author": "AEGIS Team",
   "license": "MIT",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
     "hardhat": "^2.29.0"
   }
 }

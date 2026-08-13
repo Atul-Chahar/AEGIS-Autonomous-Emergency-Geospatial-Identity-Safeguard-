@@ -9,3 +9,5 @@ build/
 local.properties
 parsed_notion_research.txt
 *.html
+aegis-contracts/artifacts/
+aegis-contracts/cache/
