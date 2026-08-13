@@ -7,7 +7,15 @@
 
 ---
 
-## 📌 Executive Summary
+## 📖 Plain English Guide (For Non-CS Readers & Stakeholders)
+
+Looking for a simple, non-technical explanation of how AEGIS works? Read our **[Plain English Master Explainer](docs/PROJECT_EXPLAINER.md)**!
+
+---
+
+## 📌 Problem Statement & Executive Summary
+
+**Problem Statement**: *"Smart Tourist Safety Monitoring & Incident Response System using AI, Geo-Fencing, and Blockchain-based Digital ID"*
 
 **AEGIS** is a privacy-preserving tourist safety and incident response ecosystem designed to operate even in remote areas with intermittent or zero cellular connectivity (e.g., Meghalaya, mountain trails, dense forests, deserts).
 
@@ -40,25 +48,25 @@ The core technical vision bridges **privacy-first digital identity**, **offline-
 
 ---
 
-## 📂 Repository Structure
+## 📂 Repository Structure & Documentation
 
 ```
 ├── aegis-android/         # Native Android App (Kotlin, Jetpack Compose, Room DB, BLE Mesh)
 ├── aegis-contracts/       # Solidity Smart Contracts (Hardhat, AegisTouristID.sol, Sepolia/Amoy)
 ├── aegis-backend/         # Express & WebSockets API Gateway (PostGIS, Turf.js spatial engine)
 ├── aegis-dashboard/       # Glassmorphic React Authority Command Center (Leaflet, OpenStreetMap)
-└── README.md              # Project Architecture & Setup Guide
+└── docs/                  # System Architecture, API Specs & Project Explainers
+    ├── PROJECT_EXPLAINER.md # Plain-English Non-Technical Guide
+    ├── ARCHITECTURE.md     # Deep System Architecture & Flowcharts
+    ├── API_SPECIFICATION.md# REST, WebSockets & Smart Contract Specs
+    └── CONTRIBUTING.md     # Teammate Onboarding Guide
 ```
 
 ---
 
 ## 🚀 Quick Start Guide
 
-### 1. Prerequisites
-- Node.js (v18+)
-- Android SDK (v34+) or `android` CLI
-
-### 2. Run Backend API Server
+### 1. Run Backend API Server
 ```bash
 cd aegis-backend
 npm install
@@ -66,7 +74,7 @@ npm start
 # Server starts on http://localhost:5000 (REST + WebSockets)
 ```
 
-### 3. Run Authority Command Center Web UI
+### 2. Run Authority Command Center Web UI
 ```bash
 cd aegis-dashboard
 npm install
@@ -74,15 +82,15 @@ npm run dev
 # Dashboard launches on http://localhost:5173
 ```
 
-### 4. Compile Smart Contracts
+### 3. Compile Smart Contracts
 ```bash
 cd aegis-contracts
 npm install
 npx hardhat compile
-# Deploy to Sepolia/Amoy testnet: npx hardhat run scripts/deploy.js --network sepolia
+# Deploy script: npx hardhat run scripts/deploy.js --network sepolia
 ```
 
-### 5. Build Android Tourist App
+### 4. Build Android Tourist App
 ```bash
 cd aegis-android
 export JAVA_HOME=/path/to/jdk-21
