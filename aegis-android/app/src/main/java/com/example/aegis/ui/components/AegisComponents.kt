@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -86,10 +85,13 @@ import com.example.aegis.theme.SunYellow
 // glow blobs (radial gradients, renders on every API level).
 // ─────────────────────────────────────────────────────────────
 @Composable
-fun AegisBackground(content: @Composable BoxScope.() -> Unit) {
+fun AegisBackground(
+  modifier: Modifier = Modifier,
+  content: @Composable BoxScope.() -> Unit,
+) {
   Box(
     modifier =
-      Modifier
+      modifier
         .fillMaxSize()
         .background(Brush.verticalGradient(listOf(SagePale, SageLight, SageSoft))),
   ) {
@@ -319,7 +321,7 @@ fun AvatarStack(
         modifier =
           Modifier
             .size(size)
-            .offset(x = if (i == 0) 0.dp else (-(size / 3f)).dp)
+            .offset(x = if (i == 0) 0.dp else -(size / 3f))
             .clip(CircleShape)
             .background(avatarPalette[i])
             .border(
@@ -341,7 +343,7 @@ fun AvatarStack(
       Box(
         modifier =
           Modifier
-            .offset(x = (-(size / 3f) * 2).dp)
+            .offset(x = -(size / 3f) * 2)
             .size(size)
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.85f))
@@ -527,9 +529,13 @@ fun AegisBottomNavScaffold(
         modifier = Modifier.height(68.dp).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        items.take(2).forEach { NavSlot(item = it, selected = selected, onSelect = onSelect) }
+        items.take(2).forEach {
+          NavSlot(item = it, selected = selected, onSelect = onSelect, modifier = Modifier.weight(1f))
+        }
         Box(modifier = Modifier.weight(1f)) // center gap for the raised SOS
-        items.drop(2).forEach { NavSlot(item = it, selected = selected, onSelect = onSelect) }
+        items.drop(2).forEach {
+          NavSlot(item = it, selected = selected, onSelect = onSelect, modifier = Modifier.weight(1f))
+        }
       }
     }
     // Raised SOS trigger
@@ -558,12 +564,12 @@ private fun NavSlot(
   item: BottomNavItem,
   selected: NavKey,
   onSelect: (NavKey) -> Unit,
+  modifier: Modifier = Modifier,
 ) {
   val isSelected = selected == item.key
   Column(
     modifier =
-      Modifier
-        .weight(1f)
+      modifier
         .height(68.dp)
         .clip(RoundedCornerShape(24.dp))
         .clickable { onSelect(item.key) },
