@@ -130,3 +130,69 @@ Executes spatial nearest-responder optimization.
 * `EMERGENCY_SOS`: Live panic alert triggered by tourist.
 * `HAZARD_ELEVATED`: Zone risk level auto-escalated by crowdsourced reports.
 * `TELEMETRY_UPDATE`: Live location & risk score update.
+
+---
+
+## 3. Authority Dashboard Tracking Contract
+
+The web dashboard tracks active trips and emergency incidents through pseudonymous operational records only. It must never request or render raw passport numbers, Aadhaar numbers, phone numbers, emergency contacts, or identity documents.
+
+### Existing REST Endpoints Used By Dashboard
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/trips` | List active trip sessions for operator monitoring. |
+| `GET` | `/api/breadcrumbs/:tripId` | Load the selected trip's BlackBox breadcrumb trail. |
+| `GET` | `/api/incidents` | Hydrate active and historical incidents. |
+| `PATCH` | `/api/incidents/:id/status` | Advance the auditable incident state machine. |
+| `GET` | `/api/geofences` | Render safe, caution, and high-risk geofence layers. |
+| `GET` | `/api/hazards` | Render crowdsourced and authority-confirmed hazards. |
+| `GET` | `/api/responders` | Render available responder units. |
+| `POST` | `/api/responders/match` | Find operationally recommended responders for a location. |
+| `POST` | `/api/search-probability` | Calculate estimated search sectors from last-known telemetry. |
+
+### Planned Tracking Endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/trips/:tripId/breadcrumbs` | Persist a new Android breadcrumb and broadcast it to dashboard clients. |
+| `GET` | `/api/trips/:tripId/latest` | Return the latest known location and telemetry for one active trip. |
+
+### Dashboard Subject Shape
+
+```json
+{
+  "subjectId": "trip:TRIP-2026-MEGHALAYA",
+  "tripId": "TRIP-2026-MEGHALAYA",
+  "touristId": "TST-8F29X4",
+  "idHash": "0x...",
+  "incidentId": "INC-...",
+  "status": "ACTIVE",
+  "lat": 25.145,
+  "lon": 91.265,
+  "accuracyMeters": 6,
+  "batteryPercent": 85,
+  "lastSeenAt": "2026-08-14T10:00:00.000Z",
+  "plannedRouteId": "cherrapunji-ridge",
+  "currentZoneId": "zone-dawki-bridge",
+  "riskScore": 72,
+  "source": "GPS",
+  "isStale": false
+}
+```
+
+### Dashboard WebSocket Events
+
+| Event | Payload |
+|---|---|
+| `CONNECTED` | Gateway status and auth mode. |
+| `EMERGENCY_SOS` | New idempotent SOS incident. |
+| `INCIDENT_STATUS_CHANGED` | Updated incident record after operator action. |
+| `HAZARD_EVALUATED` | Hazard confidence result and geofence impact. |
+| `TRIP_UPDATED` | Active trip metadata changed. |
+| `BREADCRUMB_RECORDED` | New last-known location and telemetry for a trip. |
+| `RESPONDER_UPDATED` | Responder location, availability, or capability changed. |
+| `GEOFENCE_UPDATED` | Geofence risk level or boundary changed. |
+| `SEARCH_PROBABILITY_UPDATED` | Updated search sectors for an incident. |
+
+Every event must include a server timestamp. Dashboard reducers should ignore stale events when a newer record already exists.

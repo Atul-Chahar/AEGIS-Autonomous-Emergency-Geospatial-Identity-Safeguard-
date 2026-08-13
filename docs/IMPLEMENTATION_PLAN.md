@@ -116,6 +116,9 @@ graph LR
 ### Feature 9: Glassmorphic Real-Time Authority Command Center
 * **What it does**: A ultra-sleek, dark-mode command dashboard for police, mountain rescue, and disaster management operators.
 * **UI Features**: Real-time Leaflet/MapLibre map with open-source OpenStreetMap vector tiles, animated SOS ping markers, tourist risk heatmaps, live telemetry streams, and incident management drawers.
+* **Current Dashboard Plan**: Convert the existing React/Vite dashboard into a live tracking command center for active trips, last-known breadcrumbs, SOS incidents, hazards, geofences, responders, and search probability overlays.
+* **Privacy Boundary**: The dashboard tracks pseudonymous safety state only (`touristId`, `idHash`, `tripId`, location accuracy, battery, timestamp, risk, and incident status). It must not display passport numbers, Aadhaar numbers, phone numbers, emergency contacts, or identity documents.
+* **Detailed Plan**: See `docs/superpowers/plans/2026-08-14-web-dashboard-user-tracking.md`.
 
 ---
 
