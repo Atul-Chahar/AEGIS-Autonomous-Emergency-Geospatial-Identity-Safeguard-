@@ -7,9 +7,18 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object Zones : NavKey
 
+@Serializable data object Map : NavKey
+
 @Serializable data object TouristId : NavKey
 
-/** Placeholder destination for the Activity nav slot (check-in log). */
 @Serializable data object Activity : NavKey
+
+@Serializable data object TripSetup : NavKey
+
+@Serializable data object SafetyCenter : NavKey
+
+@Serializable data object JourneyBlackBox : NavKey
+
+@Serializable data object IncidentCheck : NavKey
 
 @Serializable data class ZoneDetail(val zoneId: String) : NavKey

@@ -24,7 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -125,7 +125,7 @@ fun ZoneDetailScreen(
           GuardianLivePill(status = zone.status)
         }
 
-        // Bottom overlays — risk badge + title (left), peers (right)
+        // Bottom overlays — risk badge + title (left), support status (right)
         Row(
           modifier =
             Modifier
@@ -163,7 +163,7 @@ fun ZoneDetailScreen(
           Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AvatarStack(peers = zone.peers, size = 34.dp, dark = true)
             Text(
-              text = "+${zone.peers} mesh peers",
+              text = if (zone.peers > 0) "Nearby relay support" else "Relay support limited",
               style = MaterialTheme.typography.labelSmall,
               color = Color.White.copy(alpha = 0.85f),
             )
@@ -190,7 +190,7 @@ fun ZoneDetailScreen(
                 StatusPill(status = zone.status)
               }
               Icon(
-                imageVector = Icons.Filled.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = InkSoft,
               )
@@ -202,7 +202,7 @@ fun ZoneDetailScreen(
               color = Ink,
             )
             Text(
-              text = zone.description,
+              text = safetyDescription(zone),
               style = MaterialTheme.typography.bodyMedium,
               color = InkSoft,
             )
@@ -213,7 +213,7 @@ fun ZoneDetailScreen(
             ) {
               MetaItem(emoji = "📅", text = zone.dates)
               MetaItem(emoji = "📍", text = zone.elevation)
-              MetaItem(emoji = "📡", text = "${zone.peers} peers")
+                MetaItem(emoji = "🛟", text = if (zone.peers > 0) "Relay ready" else "Relay limited")
             }
 
             RiskMeter(score = zone.riskScore)
@@ -234,12 +234,12 @@ fun ZoneDetailScreen(
                   Spacer(modifier = Modifier.width(12.dp))
                   Column {
                     Text(
-                      text = "EMERGENCY SOS",
+                      text = "Emergency SOS",
                       style = MaterialTheme.typography.titleMedium,
                       color = Color.White,
                     )
                     Text(
-                      text = "Dual dispatch: WebSockets + zero-cost SMS",
+                      text = "Opens press-and-hold confirmation",
                       style = MaterialTheme.typography.bodySmall,
                       color = Color.White.copy(alpha = 0.7f),
                     )
@@ -256,7 +256,7 @@ fun ZoneDetailScreen(
                   modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) {
                   Text(
-                    text = "PRESS TO DISPATCH SOS",
+                    text = "OPEN SOS CONFIRMATION",
                     style = MaterialTheme.typography.labelLarge,
                   )
                 }
@@ -300,7 +300,7 @@ fun ZoneDetailScreen(
         shadowElevation = 12.dp,
       ) {
         Text(
-          text = "✓ Checked in — guardian notified",
+          text = "✓ Safety check saved locally",
           style = MaterialTheme.typography.labelMedium,
           color = Color.White,
           modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -313,6 +313,16 @@ fun ZoneDetailScreen(
     }
   }
 }
+
+private fun safetyDescription(zone: SafetyZone): String =
+  when (zone.status) {
+    ZoneStatus.SAFE ->
+      "${zone.name} is currently suitable for a calm journey. Stay on the planned route and keep check-ins active."
+    ZoneStatus.CAUTION ->
+      "${zone.name} needs extra attention today. Expect slippery sections and keep Journey Protection active."
+    ZoneStatus.HIGH_RISK ->
+      "${zone.name} requires caution. Avoid hiking alone and follow local safety guidance before continuing."
+  }
 
 // ─────────────────────────────────────────────────────────────
 // GuardianLivePill — dark glass status pill over the banner.

@@ -6,10 +6,15 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.example.aegis.ui.activity.ActivityScreen
+import com.example.aegis.ui.activity.JourneyBlackBoxScreen
 import com.example.aegis.ui.home.HomeScreen
 import com.example.aegis.ui.id.TouristIdScreen
+import com.example.aegis.ui.incident.IncidentCheckScreen
+import com.example.aegis.ui.map.MapScreen
+import com.example.aegis.ui.safety.SafetyCenterScreen
+import com.example.aegis.ui.trip.TripSetupScreen
 import com.example.aegis.ui.zone.ZoneDetailScreen
-import com.example.aegis.ui.zones.ZonesScreen
 
 @Composable
 fun MainNavigation() {
@@ -22,24 +27,52 @@ fun MainNavigation() {
       entryProvider {
         entry<Home> {
           HomeScreen(
-            onOpenZones = { navigateTo(backStack, Zones) },
+            onOpenMap = { navigateTo(backStack, Map) },
+            onOpenActivity = { navigateTo(backStack, Activity) },
             onOpenTouristId = { navigateTo(backStack, TouristId) },
+            onOpenTripSetup = { backStack.add(TripSetup) },
+            onOpenSafetyCenter = { backStack.add(SafetyCenter) },
             onOpenZoneDetail = { zoneId -> backStack.add(ZoneDetail(zoneId)) },
           )
         }
-        entry<Zones> {
-          ZonesScreen(
-            onBack = { backStack.removeLastOrNull() },
+        entry<Map> {
+          MapScreen(
             onOpenHome = { navigateTo(backStack, Home) },
+            onOpenActivity = { navigateTo(backStack, Activity) },
             onOpenTouristId = { navigateTo(backStack, TouristId) },
+            onOpenSafetyCenter = { backStack.add(SafetyCenter) },
             onOpenZoneDetail = { zoneId -> backStack.add(ZoneDetail(zoneId)) },
+          )
+        }
+        entry<Activity> {
+          ActivityScreen(
+            onOpenHome = { navigateTo(backStack, Home) },
+            onOpenMap = { navigateTo(backStack, Map) },
+            onOpenTouristId = { navigateTo(backStack, TouristId) },
+            onOpenSafetyCenter = { backStack.add(SafetyCenter) },
+            onOpenBlackBox = { backStack.add(JourneyBlackBox) },
           )
         }
         entry<TouristId> {
           TouristIdScreen(
-            onBack = { backStack.removeLastOrNull() },
             onOpenHome = { navigateTo(backStack, Home) },
-            onOpenZones = { navigateTo(backStack, Zones) },
+            onOpenMap = { navigateTo(backStack, Map) },
+            onOpenActivity = { navigateTo(backStack, Activity) },
+          )
+        }
+        entry<TripSetup> {
+          TripSetupScreen(
+            onBack = { backStack.removeLastOrNull() },
+            onStartJourney = { navigateTo(backStack, Home) },
+          )
+        }
+        entry<SafetyCenter> { SafetyCenterScreen(onBack = { backStack.removeLastOrNull() }) }
+        entry<JourneyBlackBox> { JourneyBlackBoxScreen(onBack = { backStack.removeLastOrNull() }) }
+        entry<IncidentCheck> {
+          IncidentCheckScreen(
+            onBack = { backStack.removeLastOrNull() },
+            onSafe = { backStack.removeLastOrNull() },
+            onNeedHelp = { backStack.removeLastOrNull() },
           )
         }
         entry<ZoneDetail> { detail ->
