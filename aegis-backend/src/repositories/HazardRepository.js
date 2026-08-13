@@ -1,64 +1,129 @@
 const db = require('../database/pool');
 const postgis = require('../geospatial/postgisHelper');
+const confidenceEngine = require('../geospatial/HazardConfidenceEngine');
 
 class HazardRepository {
   async createHazardReport(report) {
-    const id = `HAZ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const id = report.id || `HAZ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const lat = parseFloat(report.lat);
     const lon = parseFloat(report.lon);
+    const reporterId = report.reporterId || 'ANONYMOUS';
+    const reporterRole = report.reporterRole || 'TOURIST';
+    const timestamp = report.timestamp || new Date().toISOString();
 
-    // 1. PostGIS or memory spatial clustering check: find reports within 500m (0.5 km)
-    let nearbyCount = 0;
-    if (db.isPostgresConnected) {
-      const clusterRes = await db.query(
-        `SELECT COUNT(*) FROM hazard_reports 
-         WHERE hazard_type = $1 
-         AND ST_DWithin(location, ST_SetSRID(ST_MakePoint($2, $3), 4326), 0.005);`,
-        [report.hazardType, lon, lat]
-      );
-      nearbyCount = parseInt(clusterRes.rows[0].count) || 0;
-    } else {
-      const hazards = db.getStore().hazardReports;
-      nearbyCount = hazards.filter(h => {
-        if (h.hazardType !== report.hazardType) return false;
-        const distKm = postgis.calculateDistanceKm(lat, lon, h.lat, h.lon);
-        return distKm <= 0.5; // 500m
-      }).length;
-    }
-
-    const initialStatus = (nearbyCount >= 2) ? 'VERIFIED' : 'UNVERIFIED';
-
-    if (db.isPostgresConnected) {
-      const text = `
-        INSERT INTO hazard_reports (id, reporter_id, hazard_type, lat, lon, location, description, status)
-        VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_MakePoint($5, $4), 4326), $6, $7)
-        RETURNING *;
-      `;
-      const values = [
-        id,
-        report.reporterId || 'ANONYMOUS',
-        report.hazardType,
-        lat,
-        lon,
-        report.description || '',
-        initialStatus
-      ];
-      const res = await db.query(text, values);
-      return { hazard: res.rows[0], nearbyCount, isVerified: initialStatus === 'VERIFIED' };
-    }
-
-    const record = {
+    const candidateReport = {
       id,
-      reporterId: report.reporterId || 'ANONYMOUS',
+      reporterId,
+      reporterRole,
       hazardType: report.hazardType,
       lat,
       lon,
       description: report.description || '',
-      status: initialStatus,
-      timestamp: new Date().toISOString()
+      evidenceRef: report.evidenceRef || null,
+      hasWeatherEvidence: !!report.hasWeatherEvidence,
+      timestamp
     };
-    db.getStore().hazardReports.push(record);
-    return { hazard: record, nearbyCount, isVerified: initialStatus === 'VERIFIED' };
+
+    // 1. Query existing active hazard reports for confidence evaluation
+    const existingActiveHazards = await this.getAllHazards();
+
+    // 2. Evaluate Confidence via HazardConfidenceEngine
+    const evalResult = confidenceEngine.evaluateConfidence(candidateReport, existingActiveHazards);
+
+    const confidenceScore = evalResult.confidenceScore;
+    const verificationStatus = evalResult.verificationStatus;
+    const reason = evalResult.reason;
+
+    // 3. Save Record
+    let savedRecord = null;
+
+    if (db.isPostgresConnected) {
+      const text = `
+        INSERT INTO hazard_reports (id, reporter_id, hazard_type, lat, lon, location, description, status, confidence_score, verification_status, evidence_ref, reporter_role, audit_trail_json)
+        VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_MakePoint($5, $4), 4326), $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *;
+      `;
+      const values = [
+        id,
+        reporterId,
+        report.hazardType,
+        lat,
+        lon,
+        report.description || '',
+        verificationStatus,
+        confidenceScore,
+        verificationStatus,
+        report.evidenceRef || null,
+        reporterRole,
+        JSON.stringify(evalResult.auditTrail)
+      ];
+      const res = await db.query(text, values);
+      savedRecord = res.rows[0];
+    } else {
+      savedRecord = {
+        id,
+        reporterId,
+        reporterRole,
+        hazardType: report.hazardType,
+        lat,
+        lon,
+        description: report.description || '',
+        status: verificationStatus,
+        confidenceScore,
+        verificationStatus,
+        evidenceRef: report.evidenceRef || null,
+        auditTrail: evalResult.auditTrail,
+        timestamp
+      };
+      db.getStore().hazardReports.push(savedRecord);
+    }
+
+    // 4. Log Audit Event for confidence evaluation
+    await this.logHazardEvent(id, 'CONFIDENCE_UPDATED', confidenceScore, verificationStatus, reason);
+
+    // 5. If status is LIKELY or AUTHORITY_CONFIRMED, log route / geofence audit event
+    let routeClosed = false;
+    let geofenceUpdated = false;
+
+    if (verificationStatus === 'LIKELY' || verificationStatus === 'AUTHORITY_CONFIRMED') {
+      routeClosed = true;
+      geofenceUpdated = true;
+      await this.logHazardEvent(id, 'ROUTE_CLOSED', confidenceScore, verificationStatus, `Route corridor closed due to ${verificationStatus} hazard (${report.hazardType})`);
+      await this.logHazardEvent(id, 'GEOFENCE_RISK_UPDATED', confidenceScore, verificationStatus, `Geofence risk rating updated to HIGH_RISK due to ${verificationStatus} hazard (${report.hazardType})`);
+    }
+
+    return {
+      hazard: savedRecord,
+      confidenceScore,
+      verificationStatus,
+      reason,
+      routeClosed,
+      geofenceUpdated,
+      isVerified: verificationStatus === 'AUTHORITY_CONFIRMED' || verificationStatus === 'LIKELY'
+    };
+  }
+
+  async logHazardEvent(hazardId, eventType, confidenceScore, verificationStatus, reason) {
+    if (db.isPostgresConnected) {
+      await db.query(
+        `INSERT INTO hazard_events (hazard_id, event_type, confidence_score, verification_status, reason)
+         VALUES ($1, $2, $3, $4, $5);`,
+        [hazardId, eventType, confidenceScore, verificationStatus, reason]
+      );
+    } else {
+      if (!db.getStore().hazardEvents) {
+        db.getStore().hazardEvents = [];
+      }
+      db.getStore().hazardEvents.push({
+        id: Date.now(),
+        hazardId,
+        eventType,
+        confidenceScore,
+        verificationStatus,
+        reason,
+        createdAt: new Date().toISOString()
+      });
+    }
   }
 
   async getAllHazards() {
@@ -67,6 +132,16 @@ class HazardRepository {
       return res.rows;
     }
     return db.getStore().hazardReports;
+  }
+
+  async clearAll() {
+    if (db.isPostgresConnected) {
+      await db.query('DELETE FROM hazard_reports;');
+      await db.query('DELETE FROM hazard_events;');
+    } else {
+      db.getStore().hazardReports = [];
+      db.getStore().hazardEvents = [];
+    }
   }
 }
 
