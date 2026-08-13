@@ -14,6 +14,7 @@ import com.example.aegis.location.AndroidLocationProvider
 import com.example.aegis.location.LocationProvider
 import com.example.aegis.sensors.ActivityRecognitionProvider
 import com.example.aegis.sensors.AndroidActivityRecognitionProvider
+import com.example.aegis.data.repository.BlackBoxRepository
 import com.example.aegis.service.CheckInScheduler
 
 /**

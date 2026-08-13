@@ -73,9 +73,9 @@ class TripTrackingService : Service() {
 
   override fun onCreate() {
     super.onCreate()
-    val appContainer = (application as AegisApplication).appContainer
-    repository = appContainer.blackBoxRepository
-    locationProvider = AndroidLocationProvider(this)
+    val container = (application as AegisApplication).container
+    repository = container.blackBoxRepository
+    locationProvider = container.locationProvider
     batteryInfoProvider = BatteryInfoProvider(this)
     activityRecognitionProvider = AndroidActivityRecognitionProvider(this)
 
@@ -127,28 +127,35 @@ class TripTrackingService : Service() {
 
     // Activity Recognition listener
     serviceScope.launch {
-      activityRecognitionProvider.observeDetectedActivity().catch {}.collect { activity ->
-        currentActivityMode = activity.type.name
+      activityRecognitionProvider.observeActivity().catch {}.collect { activity ->
+        currentActivityMode = when (activity.type) {
+          com.example.aegis.sensors.DetectedActivity.TYPE_WALKING -> "WALKING"
+          com.example.aegis.sensors.DetectedActivity.TYPE_RUNNING -> "RUNNING"
+          com.example.aegis.sensors.DetectedActivity.TYPE_ON_BICYCLE -> "ON_BICYCLE"
+          com.example.aegis.sensors.DetectedActivity.TYPE_IN_VEHICLE -> "IN_VEHICLE"
+          else -> "STILL"
+        }
       }
     }
 
-    // Location updates listener
+    // Periodic Location updates listener
     locationJob?.cancel()
     locationJob = serviceScope.launch {
-      locationProvider.observeLocation(intervalMillis = 5000L).catch {}.collect { locResult ->
+      while (true) {
         val batteryPct = batteryInfoProvider.getBatteryPercent()
+        val locResult = locationProvider.currentLocation()
 
         val breadcrumb = when (locResult) {
-          is LocationResult.Fix -> Breadcrumb(
+          is LocationResult.Success -> Breadcrumb(
             breadcrumbId = UUID.randomUUID().toString(),
             tripId = tripId,
             timestamp = locResult.timestampEpochMillis,
             latitude = locResult.latitude,
             longitude = locResult.longitude,
             horizontalAccuracyMeters = locResult.accuracyMeters,
-            altitudeMeters = locResult.altitudeMeters,
-            speedMps = locResult.speedMps,
-            bearingDegrees = locResult.bearingDegrees,
+            altitudeMeters = null,
+            speedMps = 0f,
+            bearingDegrees = 0f,
             batteryPercent = batteryPct,
             activityMode = currentActivityMode,
             locationSource = "FUSED",
@@ -159,6 +166,7 @@ class TripTrackingService : Service() {
         }
 
         breadcrumb?.let { repository.recordBreadcrumb(it) }
+        kotlinx.coroutines.delay(5000L)
       }
     }
   }
