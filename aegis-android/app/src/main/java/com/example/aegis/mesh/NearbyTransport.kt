@@ -15,9 +15,13 @@ import com.google.android.gms.nearby.connection.Payload
 import com.google.android.gms.nearby.connection.PayloadCallback
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import com.google.android.gms.nearby.connection.Strategy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
@@ -44,6 +48,7 @@ class NearbyTransport(
 
   private val connectedEndpoints = mutableMapOf<String, PeerDevice>()
   private val localEndpointName = "AEGIS-" + UUID.randomUUID().toString().take(6).uppercase()
+  private val relayScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
   // 1. Connection Lifecycle Callback with Authenticated Connection Handshake
   private val connectionLifecycleCallback = object : ConnectionLifecycleCallback() {
@@ -105,7 +110,7 @@ class NearbyTransport(
 
         // Dispatch incoming packet to RelayInbox
         relayInbox?.let { inbox ->
-          kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+          relayScope.launch {
             inbox.receiveRelayPacket(packet)
           }
         }
