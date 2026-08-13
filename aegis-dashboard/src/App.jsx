@@ -14,7 +14,8 @@ import {
   fetchTrajectory,
   updateIncidentStatus,
   verifyVoucher,
-  fetchSearchProbability
+  fetchSearchProbability,
+  WS_URL
 } from './api';
 
 // Fix Leaflet Default Marker Icons
@@ -96,7 +97,7 @@ export default function App() {
     let reconnectTimer = null;
 
     const connectWs = () => {
-      ws = new WebSocket('ws://localhost:5000');
+      ws = new WebSocket(WS_URL);
       ws.onopen = () => {
         setWsConnected(true);
       };

@@ -33,6 +33,9 @@ class AndroidLocationProvider(private val context: Context) : LocationProvider {
                 longitude = location.longitude,
                 accuracyMeters = location.accuracy,
                 timestampEpochMillis = location.time,
+                speedMps = if (location.hasSpeed()) location.speed else null,
+                bearingDegrees = if (location.hasBearing()) location.bearing else null,
+                altitudeMeters = if (location.hasAltitude()) location.altitude else null,
               ),
             )
           } else {

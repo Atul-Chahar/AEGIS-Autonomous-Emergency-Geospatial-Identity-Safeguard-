@@ -7,6 +7,9 @@ sealed interface LocationResult {
     val longitude: Double,
     val accuracyMeters: Float,
     val timestampEpochMillis: Long,
+    val speedMps: Float? = null,
+    val bearingDegrees: Float? = null,
+    val altitudeMeters: Double? = null,
   ) : LocationResult
 
   data class Unavailable(val reason: String) : LocationResult
