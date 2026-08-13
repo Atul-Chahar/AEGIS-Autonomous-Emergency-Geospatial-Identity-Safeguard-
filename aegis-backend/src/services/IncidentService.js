@@ -27,6 +27,10 @@ class IncidentService {
     };
   }
 
+  async updateStatus(incidentId, status) {
+    return incidentRepository.updateIncidentStatus(incidentId, status);
+  }
+
   async listAllIncidents() {
     return incidentRepository.getAllIncidents();
   }

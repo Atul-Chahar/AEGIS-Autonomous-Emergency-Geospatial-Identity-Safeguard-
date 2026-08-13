@@ -6,6 +6,8 @@ const geofenceRoutes = require('./geofenceRoutes');
 const incidentRoutes = require('./incidentRoutes');
 const hazardRoutes = require('./hazardRoutes');
 const authRoutes = require('./authRoutes');
+const responderRoutes = require('./responderRoutes');
+const tripRoutes = require('./tripRoutes');
 
 const router = express.Router();
 
@@ -16,5 +18,7 @@ router.use(geofenceRoutes);
 router.use(incidentRoutes);
 router.use(hazardRoutes);
 router.use(authRoutes);
+router.use(responderRoutes);
+router.use(tripRoutes);
 
 module.exports = router;

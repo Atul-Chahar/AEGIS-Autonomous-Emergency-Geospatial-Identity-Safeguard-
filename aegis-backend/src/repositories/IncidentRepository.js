@@ -93,6 +93,31 @@ class IncidentRepository {
     }
   }
 
+  async updateIncidentStatus(incidentId, newStatus) {
+    const validStatuses = ['OPEN', 'ACKNOWLEDGED', 'TEAM_DISPATCHED', 'SEARCHING', 'LOCATED', 'RESOLVED'];
+    if (!validStatuses.includes(newStatus)) {
+      throw new Error(`INVALID_STATUS: Allowed statuses are ${validStatuses.join(', ')}`);
+    }
+
+    let updated = null;
+    if (db.isPostgresConnected) {
+      const res = await db.query('UPDATE incidents SET status = $1 WHERE id = $2 RETURNING *;', [newStatus, incidentId]);
+      updated = res.rows[0];
+    } else {
+      const incident = db.getStore().incidents.find(i => i.id === incidentId);
+      if (incident) {
+        incident.status = newStatus;
+        updated = incident;
+      }
+    }
+
+    if (updated) {
+      await this.logAuditEvent(incidentId, 'STATUS_CHANGED', { newStatus });
+    }
+
+    return updated;
+  }
+
   async getAllIncidents() {
     if (db.isPostgresConnected) {
       const res = await db.query('SELECT * FROM incidents ORDER BY timestamp DESC;');
