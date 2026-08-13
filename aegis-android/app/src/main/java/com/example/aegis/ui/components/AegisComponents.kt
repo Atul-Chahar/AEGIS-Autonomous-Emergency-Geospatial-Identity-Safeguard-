@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,8 +59,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation3.runtime.NavKey
-import com.example.aegis.data.MockData
-import com.example.aegis.data.ZoneStatus
+import com.example.aegis.domain.model.SosDispatchResult
+import com.example.aegis.domain.model.ZoneStatus
 import com.example.aegis.theme.CautionAmber
 import com.example.aegis.theme.DangerRed
 import com.example.aegis.theme.ForestDark
@@ -592,16 +593,19 @@ private fun NavSlot(
 }
 
 // ─────────────────────────────────────────────────────────────
-// SosOverlay — full-screen emergency dispatch with a pulse
-// animation and dual-channel confirmation (the "peak moment").
+// SosOverlay — full-screen emergency dispatch with a pulse animation.
+// Shows exactly what the dispatch pipeline returns: the transport is not
+// connected yet, so the result is an honest NotAvailable — never a fake
+// "help en route".
 // ─────────────────────────────────────────────────────────────
 @Composable
 fun SosOverlay(
+  payloadPreview: String?,
+  dispatchResult: SosDispatchResult?,
+  onDispatch: () -> Unit,
   onDismiss: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  var dispatched by remember { mutableStateOf(false) }
-
   Dialog(
     onDismissRequest = onDismiss,
     properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -631,18 +635,15 @@ fun SosOverlay(
           }
 
           Text(
-            text = if (dispatched) "HELP EN ROUTE" else "EMERGENCY SOS",
+            text = "EMERGENCY SOS",
             style = MaterialTheme.typography.headlineMedium,
-            color = if (dispatched) SafeGreen else DangerRed,
+            color = DangerRed,
             modifier = Modifier.align(Alignment.CenterHorizontally),
           )
           Text(
             text =
-              if (dispatched) {
-                "Authority notified. Your location, battery and Tourist ID were locked and dispatched."
-              } else {
-                "Your exact location, battery %, tourist ID and last trajectory lock instantly."
-              },
+              "Your tourist ID and status are prepared locally. Dispatch transmits the moment an " +
+                "emergency transport is connected.",
             style = MaterialTheme.typography.bodyMedium,
             color = InkSoft,
           )
@@ -652,45 +653,64 @@ fun SosOverlay(
             color = ForestDark.copy(alpha = 0.08f),
             border = BorderStroke(1.dp, ForestDark.copy(alpha = 0.12f)),
           ) {
-            Text(
-              text =
-                "SOS:${MockData.TOURIST_ID}|25.141,91.261|BAT 82|12:04\n" +
-                  "→ WebSockets ✓  → SMS fallback ✓  → Mesh relay ✓",
-              style = MaterialTheme.typography.labelMedium,
-              color = InkSoft,
-              modifier = Modifier.padding(12.dp),
-            )
-          }
-
-          if (dispatched) {
-            Surface(
-              shape = RoundedCornerShape(14.dp),
-              color = SafeGreen.copy(alpha = 0.14f),
-              border = BorderStroke(1.dp, SafeGreen.copy(alpha = 0.5f)),
-            ) {
-              Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                Icon(
-                  imageVector = Icons.Filled.CheckCircle,
-                  contentDescription = null,
-                  tint = SafeGreen,
-                  modifier = Modifier.size(20.dp),
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                  text = "Dispatched via WebSocket + zero-cost SMS payload",
-                  style = MaterialTheme.typography.labelMedium,
-                  color = SafeGreen,
-                )
-              }
+            Column(modifier = Modifier.padding(12.dp)) {
+              Text(
+                text = payloadPreview ?: "Preparing payload…",
+                style = MaterialTheme.typography.labelMedium,
+                color = InkSoft,
+              )
+              Spacer(modifier = Modifier.height(4.dp))
+              Text(
+                text = "Channels: WebSocket · SMS fallback · mesh — planned, not yet connected",
+                style = MaterialTheme.typography.labelSmall,
+                color = InkSoft.copy(alpha = 0.8f),
+              )
             }
           }
 
+          when (dispatchResult) {
+            is SosDispatchResult.NotAvailable ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = CautionAmber.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, CautionAmber.copy(alpha = 0.5f)),
+              ) {
+                Text(
+                  text = "⚠ ${dispatchResult.reason}",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = CautionAmber,
+                  modifier = Modifier.padding(12.dp),
+                )
+              }
+            SosDispatchResult.Dispatched ->
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = SafeGreen.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, SafeGreen.copy(alpha = 0.5f)),
+              ) {
+                Row(
+                  modifier = Modifier.fillMaxWidth().padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = SafeGreen,
+                    modifier = Modifier.size(20.dp),
+                  )
+                  Spacer(modifier = Modifier.width(10.dp))
+                  Text(
+                    text = "SOS dispatched",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SafeGreen,
+                  )
+                }
+              }
+            null -> Unit
+          }
+
           Button(
-            onClick = { dispatched = true },
-            enabled = !dispatched,
+            onClick = onDispatch,
             shape = RoundedCornerShape(16.dp),
             colors =
               ButtonDefaults.buttonColors(
@@ -700,7 +720,7 @@ fun SosOverlay(
             modifier = Modifier.fillMaxWidth().height(54.dp),
           ) {
             Text(
-              text = if (dispatched) "DISPATCHED" else "DISPATCH SOS NOW",
+              text = "REQUEST DISPATCH",
               style = MaterialTheme.typography.labelLarge,
             )
           }
@@ -710,7 +730,7 @@ fun SosOverlay(
             modifier = Modifier.align(Alignment.CenterHorizontally),
           ) {
             Text(
-              text = if (dispatched) "Close" else "Cancel",
+              text = "Cancel",
               color = InkSoft,
               style = MaterialTheme.typography.labelLarge,
             )
@@ -796,4 +816,97 @@ fun SunFab(
       )
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// BackButton — frosted circular back arrow (GlassIconButton + ArrowBack).
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun BackButton(
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  dark: Boolean = false,
+) {
+  GlassIconButton(
+    icon = Icons.Filled.ArrowBack,
+    contentDescription = "Back",
+    onClick = onClick,
+    modifier = modifier,
+    dark = dark,
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// SosButton — full-width red dispatch button with honest states.
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun SosButton(
+  dispatchLabel: String,
+  dispatching: Boolean,
+  enabled: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Button(
+    onClick = onClick,
+    enabled = enabled,
+    shape = RoundedCornerShape(16.dp),
+    colors = ButtonDefaults.buttonColors(containerColor = DangerRed, contentColor = Color.White),
+    modifier = modifier.fillMaxWidth().height(54.dp),
+  ) {
+    Text(
+      text = if (dispatching) "DISPATCHING…" else dispatchLabel,
+      style = MaterialTheme.typography.labelLarge,
+    )
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// RiskBar — compact gradient risk band (used in zone detail card).
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun RiskBar(score: Int, modifier: Modifier = Modifier) {
+  val bandColor =
+    when {
+      score >= 61 -> DangerRed
+      score >= 31 -> CautionAmber
+      else -> SafeGreen
+    }
+  BoxWithConstraints(
+    modifier = modifier.height(10.dp).clip(RoundedCornerShape(50)),
+  ) {
+    Box(
+      modifier =
+        Modifier
+          .fillMaxSize()
+          .background(Brush.horizontalGradient(listOf(SafeGreen, CautionAmber, DangerRed))),
+    )
+    val markerTravel = maxWidth - 12.dp
+    Box(
+      modifier =
+        Modifier
+          .offset(x = markerTravel * (score.coerceIn(0, 100) / 100f))
+          .size(12.dp)
+          .clip(CircleShape)
+          .background(Color.White)
+          .border(2.dp, bandColor, CircleShape),
+    )
+  }
+}
+
+// lowercase convenience aliases used by detail screens
+@Composable
+fun metaItem(emoji: String, text: String, label: String = "", modifier: Modifier = Modifier) {
+  Column(modifier = modifier) {
+    MetaItem(emoji = emoji, text = text)
+    if (label.isNotEmpty()) {
+      Spacer(modifier = Modifier.height(2.dp))
+      Text(text = label, style = MaterialTheme.typography.labelSmall, color = InkSoft)
+    }
+  }
+}
+
+@Composable
+fun avatarStack(peers: Int, modifier: Modifier = Modifier) {
+  AvatarStack(peers = peers, modifier = modifier)
 }

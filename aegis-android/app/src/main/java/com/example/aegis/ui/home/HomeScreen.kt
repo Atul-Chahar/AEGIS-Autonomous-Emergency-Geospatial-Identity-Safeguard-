@@ -9,6 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,7 +38,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,29 +52,34 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import com.example.aegis.Activity
 import com.example.aegis.Home
 import com.example.aegis.TouristId
 import com.example.aegis.Zones
-import com.example.aegis.data.MockData
-import com.example.aegis.data.SafetyZone
-import com.example.aegis.data.ZoneStatus
-import com.example.aegis.theme.DangerRed
+import com.example.aegis.domain.model.SafetyZone
+import com.example.aegis.domain.model.TouristIdentity
+import com.example.aegis.domain.model.ZoneStatus
+import com.example.aegis.domain.usecase.GetTouristIdentityUseCase
+import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
+import com.example.aegis.data.repository.demo.DemoIdentityRepository
+import com.example.aegis.data.repository.demo.DemoSafetyZoneRepository
 import com.example.aegis.theme.ForestDark
 import com.example.aegis.theme.GlassBorder
 import com.example.aegis.theme.GlassOnImage
 import com.example.aegis.theme.GlassOnImageBorder
 import com.example.aegis.theme.GlassScrim
 import com.example.aegis.theme.GlassSoftShadow
+import com.example.aegis.theme.CautionAmber
+import com.example.aegis.theme.DangerRed
 import com.example.aegis.theme.GlassSurface
 import com.example.aegis.theme.Ink
 import com.example.aegis.theme.InkSoft
 import com.example.aegis.theme.SafeGreen
-import com.example.aegis.theme.SunYellow
+import com.example.aegis.ui.ZoneArtwork
 import com.example.aegis.ui.components.AegisBackground
 import com.example.aegis.ui.components.AegisBottomNavScaffold
-import com.example.aegis.ui.components.AvatarStack
 import com.example.aegis.ui.components.BottomNavItem
 import com.example.aegis.ui.components.FakeQr
 import com.example.aegis.ui.components.FilterPill
@@ -82,20 +87,27 @@ import com.example.aegis.ui.components.GlassCard
 import com.example.aegis.ui.components.MetaItem
 import com.example.aegis.ui.components.RegionTag
 import com.example.aegis.ui.components.SectionHeader
-import com.example.aegis.ui.components.SosOverlay
 import com.example.aegis.ui.components.StatusPill
+import com.example.aegis.ui.permissions.rememberLocationPermissionState
 
 @Composable
 fun HomeScreen(
+  viewModel: HomeViewModel,
   onOpenZones: () -> Unit,
   onOpenTouristId: () -> Unit,
   onOpenZoneDetail: (String) -> Unit,
+  onSos: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  var sosVisible by remember { mutableStateOf(false) }
   var selectedCategory by remember { mutableIntStateOf(0) }
   val context = LocalContext.current
-  val featured = MockData.zoneById(MockData.activeZoneId)
+  val locationPermission = rememberLocationPermissionState()
+
+  val zones by viewModel.zones.collectAsStateWithLifecycle()
+  val featured = viewModel.featuredZone.collectAsStateWithLifecycle().value
+  val identity by viewModel.identity.collectAsStateWithLifecycle()
+  val isTracking by viewModel.isTrackingActive.collectAsStateWithLifecycle()
+  val locationText by viewModel.locationText.collectAsStateWithLifecycle()
 
   val navItems =
     listOf(
@@ -124,7 +136,7 @@ fun HomeScreen(
       ) {
         Column {
           Text(
-            text = "Hi, ${MockData.TOURIST_NAME} 👏",
+            text = "Hi, ${viewModel.touristName} 👏",
             style = MaterialTheme.typography.titleLarge,
             color = Ink,
           )
@@ -134,7 +146,7 @@ fun HomeScreen(
             color = InkSoft,
           )
         }
-        GuardianWidget()
+        GuardianWidget(status = featured?.status)
       }
 
       // Hero — region tag + big title + scan pill
@@ -181,12 +193,36 @@ fun HomeScreen(
         }
       }
 
-      // Featured safety-zone card
-      FeaturedZoneCard(zone = featured, onClick = { onOpenZoneDetail(featured.id) })
+      // Featured safety-zone card with live BlackBox tracking state
+      if (featured != null) {
+        FeaturedZoneCard(
+          zone = featured,
+          isTracking = isTracking,
+          locationText = locationText,
+          onStartRoute = {
+            if (!locationPermission.isGranted) locationPermission.request()
+            viewModel.startRoute(context, featured.id)
+          },
+          onStopRoute = {
+            viewModel.stopRoute(context)
+          },
+          onDetailClick = {
+            onOpenZoneDetail(featured.id)
+          },
+        )
+      } else {
+        GlassCard(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+          Text(
+            text = "Loading zones…",
+            style = MaterialTheme.typography.bodyMedium,
+            color = InkSoft,
+          )
+        }
+      }
 
       // Guardian ID strip
       SectionHeader(title = "Your Guardian ID", action = "View", onAction = onOpenTouristId)
-      GuardianIdStrip(onClick = onOpenTouristId)
+      GuardianIdStrip(identity = identity, onClick = onOpenTouristId)
     }
 
     AegisBottomNavScaffold(
@@ -201,7 +237,7 @@ fun HomeScreen(
           else -> Unit
         }
       },
-      onSos = { sosVisible = true },
+      onSos = onSos,
       modifier =
         Modifier
           .align(Alignment.BottomCenter)
@@ -209,19 +245,21 @@ fun HomeScreen(
           .padding(horizontal = 20.dp)
           .padding(bottom = 10.dp),
     )
-
-    if (sosVisible) {
-      SosOverlay(onDismiss = { sosVisible = false })
-    }
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// Guardian widget — the mockup's "Weather 15°C" becomes a live
-// safety status.
+// Guardian widget — live safety status of the featured zone.
 // ─────────────────────────────────────────────────────────────
 @Composable
-private fun GuardianWidget(modifier: Modifier = Modifier) {
+private fun GuardianWidget(status: ZoneStatus?, modifier: Modifier = Modifier) {
+  val (emoji, label) =
+    when (status) {
+      ZoneStatus.SAFE -> "🟢" to "Safe Zone"
+      ZoneStatus.CAUTION -> "🟡" to "Caution Zone"
+      ZoneStatus.HIGH_RISK -> "🔴" to "High Risk"
+      null -> "🛰" to "Guarding"
+    }
   Surface(
     modifier = modifier,
     shape = RoundedCornerShape(50),
@@ -251,12 +289,18 @@ private fun GuardianWidget(modifier: Modifier = Modifier) {
           color = InkSoft,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-          Text(text = "🟢", fontSize = 10.sp)
+          Text(text = emoji, fontSize = 10.sp)
           Spacer(modifier = Modifier.width(4.dp))
           Text(
-            text = "Safe Zone",
+            text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = SafeGreen,
+            color =
+              when (status) {
+                ZoneStatus.SAFE -> SafeGreen
+                ZoneStatus.CAUTION -> CautionAmber
+                ZoneStatus.HIGH_RISK -> DangerRed
+                null -> Ink
+              },
           )
         }
       }
@@ -265,8 +309,7 @@ private fun GuardianWidget(modifier: Modifier = Modifier) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ScanIdButton — the mockup's vertical search pill, now a QR
-// verification shortcut.
+// ScanIdButton — QR verification shortcut (verification itself ships later).
 // ─────────────────────────────────────────────────────────────
 @Composable
 private fun ScanIdButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -294,13 +337,16 @@ private fun ScanIdButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// FeaturedZoneCard — image card with scrim, status, meta row and
-// the "Start Route" CTA (the mockup's "The Sounds of Nature").
+// FeaturedZoneCard — image card with scrim, status, meta row and CTA.
 // ─────────────────────────────────────────────────────────────
 @Composable
 private fun FeaturedZoneCard(
   zone: SafetyZone,
-  onClick: () -> Unit,
+  isTracking: Boolean,
+  locationText: String,
+  onStartRoute: () -> Unit,
+  onStopRoute: () -> Unit,
+  onDetailClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val shape = RoundedCornerShape(32.dp)
@@ -308,13 +354,13 @@ private fun FeaturedZoneCard(
     modifier =
       modifier
         .fillMaxWidth()
-        .height(340.dp)
+        .height(360.dp)
         .shadow(24.dp, shape, ambientColor = GlassSoftShadow, spotColor = GlassSoftShadow)
         .clip(shape)
         .background(ForestDark),
   ) {
     Image(
-      painter = painterResource(id = zone.imageRes),
+      painter = painterResource(id = ZoneArtwork.imageFor(zone.id)),
       contentDescription = zone.name,
       contentScale = ContentScale.Crop,
       modifier = Modifier.fillMaxSize(),
@@ -327,7 +373,7 @@ private fun FeaturedZoneCard(
     )
     Column(
       modifier = Modifier.align(Alignment.BottomStart).padding(20.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         RegionTag(text = zone.region, dark = true)
@@ -345,33 +391,51 @@ private fun FeaturedZoneCard(
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
       )
-      Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        MetaItem(emoji = "📅", text = zone.duration, dark = true)
-        MetaItem(emoji = "📍", text = zone.elevation, dark = true)
-        MetaItem(emoji = "📡", text = "${zone.peers} peers", dark = true)
-      }
-      Spacer(modifier = Modifier.height(2.dp))
-      Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(50),
-        color = GlassOnImage,
-        border = BorderStroke(1.dp, GlassOnImageBorder),
-      ) {
-        Row(
-          modifier = Modifier.padding(horizontal = 22.dp, vertical = 13.dp),
-          verticalAlignment = Alignment.CenterVertically,
+
+      // Real BlackBox location fix display
+      Text(
+        text = if (isTracking) "🛰 Tracking: $locationText" else "📍 $locationText",
+        style = MaterialTheme.typography.labelSmall,
+        color = if (isTracking) SafeGreen else Color.White.copy(alpha = 0.75f),
+      )
+
+      Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+          onClick = if (isTracking) onStopRoute else onStartRoute,
+          shape = RoundedCornerShape(50),
+          color = if (isTracking) DangerRed else GlassOnImage,
+          border = BorderStroke(1.dp, GlassOnImageBorder),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+              text = if (isTracking) "Stop Tracking" else "Start Route",
+              style = MaterialTheme.typography.labelLarge,
+              color = Color.White,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+              imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+              contentDescription = null,
+              tint = Color.White,
+              modifier = Modifier.size(16.dp),
+            )
+          }
+        }
+
+        Surface(
+          onClick = onDetailClick,
+          shape = RoundedCornerShape(50),
+          color = GlassOnImage.copy(alpha = 0.5f),
+          border = BorderStroke(1.dp, GlassOnImageBorder),
         ) {
           Text(
-            text = "Start Route",
-            style = MaterialTheme.typography.labelLarge,
+            text = "Details",
+            style = MaterialTheme.typography.labelMedium,
             color = Color.White,
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
           )
         }
       }
@@ -380,15 +444,15 @@ private fun FeaturedZoneCard(
 }
 
 // ─────────────────────────────────────────────────────────────
-// GuardianIdStrip — mini Tourist-ID card with QR + on-chain status.
+// GuardianIdStrip — local identity voucher (honest, no on-chain claims).
 // ─────────────────────────────────────────────────────────────
 @Composable
-private fun GuardianIdStrip(onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun GuardianIdStrip(identity: TouristIdentity?, onClick: () -> Unit, modifier: Modifier = Modifier) {
   GlassCard(
     onClick = onClick,
     modifier = modifier.fillMaxWidth(),
     shape = RoundedCornerShape(24.dp),
-    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+    contentPadding = PaddingValues(16.dp),
   ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Box(
@@ -404,7 +468,7 @@ private fun GuardianIdStrip(onClick: () -> Unit, modifier: Modifier = Modifier) 
       Spacer(modifier = Modifier.width(14.dp))
       Column(modifier = Modifier.weight(1f)) {
         Text(
-          text = MockData.TOURIST_ID,
+          text = identity?.touristId ?: "—",
           style = MaterialTheme.typography.titleMedium,
           color = Ink,
         )
@@ -413,7 +477,7 @@ private fun GuardianIdStrip(onClick: () -> Unit, modifier: Modifier = Modifier) 
           Text(text = "●", fontSize = 8.sp, color = SafeGreen)
           Spacer(modifier = Modifier.width(5.dp))
           Text(
-            text = "On-chain proof · Active",
+            text = "Local voucher · Offline-first · Preview",
             style = MaterialTheme.typography.labelSmall,
             color = SafeGreen,
           )
@@ -431,7 +495,18 @@ private fun GuardianIdStrip(onClick: () -> Unit, modifier: Modifier = Modifier) 
 @androidx.compose.ui.tooling.preview.Preview(showBackground = true, widthDp = 400, heightDp = 860)
 @Composable
 private fun HomeScreenPreview() {
-  androidx.compose.material3.MaterialTheme {
-    HomeScreen(onOpenZones = {}, onOpenTouristId = {}, onOpenZoneDetail = {})
+  com.example.aegis.theme.AEGISTheme {
+    HomeScreen(
+      viewModel =
+        HomeViewModel(
+          observeZones = ObserveSafetyZonesUseCase(DemoSafetyZoneRepository()),
+          observeIdentity = GetTouristIdentityUseCase(DemoIdentityRepository()),
+          blackBoxRepository = com.example.aegis.data.repository.demo.DemoBlackBoxRepository(),
+        ),
+      onOpenZones = {},
+      onOpenTouristId = {},
+      onOpenZoneDetail = {},
+      onSos = {},
+    )
   }
 }

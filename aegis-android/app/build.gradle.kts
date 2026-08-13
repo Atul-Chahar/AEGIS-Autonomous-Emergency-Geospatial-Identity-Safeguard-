@@ -2,6 +2,7 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.ksp)
 }
 
 android {
@@ -13,6 +14,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        // Backend base URL — overridable via -PaegisBackendBaseUrl=... or gradle.properties.
+        // 10.0.2.2 is the emulator alias for the host machine's loopback.
+        val aegisBackendBaseUrl = (project.findProperty("aegisBackendBaseUrl") as String?)
+            ?: "http://10.0.2.2:5000"
+        buildConfigField("String", "AEGIS_BACKEND_BASE_URL", "\"$aegisBackendBaseUrl\"")
     }
 
     buildTypes {
@@ -28,13 +35,18 @@ android {
     buildFeatures {
       compose = true
       aidl = false
-      buildConfig = false
+      buildConfig = true
       shaders = false
     }
 
     packaging {
       resources {
         excludes += "/META-INF/{AL2.0,LGPL2.1}"
+      }
+    }
+
+    testOptions {
+      unitTests.all {
       }
     }
 }
@@ -69,9 +81,12 @@ dependencies {
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-  // Local tests: jUnit, coroutines, Android runner
+  // Local tests: jUnit, coroutines, Android runner, Robolectric
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation(libs.androidx.test.core)
+  testImplementation(libs.androidx.test.ext.junit)
+  testImplementation(libs.robolectric)
 
   // Instrumented tests: jUnit rules and runners
   androidTestImplementation(libs.androidx.test.core)
@@ -83,4 +98,19 @@ dependencies {
   implementation(libs.androidx.navigation3.ui)
   implementation(libs.androidx.navigation3.runtime)
   implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+  // Local persistence (offline-first): Room + KSP
+  implementation(libs.room.runtime)
+  implementation(libs.room.ktx)
+  ksp(libs.room.compiler)
+
+  // Background work (offline-first check-ins)
+  implementation(libs.androidx.work.runtime.ktx)
+
+  // Location + Activity Recognition (Google Play Services)
+  implementation(libs.play.services.location)
+
+  // Network: OkHttp with WebSocket support + kotlinx.serialization JSON
+  implementation(libs.okhttp)
+  implementation(libs.kotlinx.serialization.json)
 }
