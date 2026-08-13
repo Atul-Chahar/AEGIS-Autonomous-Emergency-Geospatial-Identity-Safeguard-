@@ -233,7 +233,7 @@ class OutboxEmergencyRepositoryTest {
       return outboxMap.values.filter { it.status == "PENDING" }
     }
 
-    override fun observePendingCount(): Flow<Int> = flowOf(getPendingPackets().size)
+    override fun observePendingCount(): Flow<Int> = flowOf(outboxMap.values.count { it.status == "PENDING" })
 
     override fun observePacket(packetId: String): Flow<OutboxEntity?> = flowOf(outboxMap[packetId])
 

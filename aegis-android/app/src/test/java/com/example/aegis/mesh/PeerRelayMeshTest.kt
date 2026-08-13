@@ -153,7 +153,7 @@ class PeerRelayMeshTest {
         )
     }
 
-    override fun observePendingRelayCount(): Flow<Int> = flowOf(getPendingRelayPackets().size)
+    override fun observePendingRelayCount(): Flow<Int> = flowOf(map.values.count { it.status == "STORED_PENDING_RELAY" })
 
     override suspend fun markRelayed(packetId: String, serverAckId: String, relayedAt: Long) {
       val existing = map[packetId]
