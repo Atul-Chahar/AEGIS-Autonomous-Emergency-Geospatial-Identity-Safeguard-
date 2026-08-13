@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shield, AlertTriangle, Radio, Navigation, CheckCircle2, MapPin, AlertCircle, PhoneCall, Cpu, Activity, Battery, Compass, CheckSquare, Clock, Share2, Target, Percent } from 'lucide-react';
+import { Shield, AlertTriangle, Radio, Navigation, CheckCircle2, MapPin, AlertCircle, PhoneCall, Cpu, Activity, Battery, Compass, CheckSquare, Clock, Share2, Target, Percent, AlertOctagon } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polygon, Circle, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -49,7 +49,7 @@ export default function App() {
   const [responders, setResponders] = useState([]);
   const [activeTrips, setActiveTrips] = useState([]);
   const [selectedIncident, setSelectedIncident] = useState(null);
-  const [matchedResponders, setMatchedResponders] = useState([]);
+  const [rescueEvaluation, setRescueEvaluation] = useState(null);
   const [trajectoryPoints, setTrajectoryPoints] = useState([]);
   const [searchProbability, setSearchProbability] = useState(null);
 
@@ -146,6 +146,7 @@ export default function App() {
     if (!selectedIncident) {
       setTrajectoryPoints([]);
       setSearchProbability(null);
+      setRescueEvaluation(null);
       return;
     }
     const tripId = selectedIncident.tripId || 'TRIP-2026-MEGHALAYA';
@@ -165,7 +166,7 @@ export default function App() {
         ]);
       });
 
-    // Fetch LandSAR-inspired Search Probability Engine calculation
+    // Fetch Search Probability Engine calculation
     fetchSearchProbability({
       lastBreadcrumb: { lat: selectedIncident.lat, lon: selectedIncident.lon },
       speedMetersPerSec: 1.2,
@@ -177,12 +178,12 @@ export default function App() {
 
   }, [selectedIncident]);
 
-  // Handle Responder Matching
+  // Handle Rescueability Engine Responder Matching
   const handleMatchResponders = async (incident) => {
     if (!incident) return;
     try {
       const res = await matchResponders(incident.lat, incident.lon);
-      setMatchedResponders(res.nearestResponders || []);
+      setRescueEvaluation(res);
     } catch (e) {
       console.error("Match error:", e);
     }
@@ -376,29 +377,9 @@ export default function App() {
 
         </div>
 
-        {/* RIGHT COLUMN: INCIDENT TELEMETRY & MOST LIKELY SEARCH SECTORS */}
+        {/* RIGHT COLUMN: INCIDENT TELEMETRY & RESCUEABILITY ENGINE RECOMMENDATION */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
-          {/* MOST LIKELY SEARCH SECTORS (Never claims certainty / "Victim is here") */}
-          <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#8B5CF6' }}>
-              <Target size={18} /> Most Likely Search Sectors
-            </h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {searchProbability?.wordingDisclaimer || 'Most likely search sectors based on telemetry & physical reach. Probability is an estimation, not certainty.'}
-            </p>
-
-            {searchProbability?.topSearchSectors?.map(sec => (
-              <div key={sec.sectorId} className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', borderLeft: '3px solid #8B5CF6' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '0.85rem', color: '#FFFFFF' }}>{sec.name}</strong>
-                  <span className="badge badge-purple">{sec.probabilityPercent}% Probability</span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{sec.explanation}</span>
-              </div>
-            ))}
-          </div>
-
           {/* CRITICAL INCIDENT TELEMETRY DRAWER */}
           <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -457,46 +438,68 @@ export default function App() {
                   <span><strong>{selectedIncident.activityMode || 'WALKING'}</strong> • {selectedIncident.batteryPct || selectedIncident.batteryPercent || 85}%</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '0.4rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Event Source:</span>
-                  <span className="badge badge-danger">{selectedIncident.eventType || 'MANUAL_SOS'}</span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '0.4rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Incident Confidence:</span>
-                  <strong style={{ color: 'var(--accent-emerald)' }}>HIGH (95%)</strong>
-                </div>
-
                 <button
                   className="btn-danger"
                   id="btn-find-responders"
                   onClick={() => handleMatchResponders(selectedIncident)}
                   style={{ marginTop: '0.5rem', width: '100%', justifyContent: 'center' }}
                 >
-                  <Navigation size={18} /> Match Spatial Nearest Responders
+                  <Navigation size={18} /> Evaluate Rescueability Engine
                 </button>
               </div>
             ) : (
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No active incident selected.</p>
             )}
 
-            {/* MATCHED NEAREST RESPONDERS LIST */}
-            {matchedResponders.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>MATCHED NEAREST UNITS:</h4>
-                {matchedResponders.map(r => (
-                  <div key={r.id} className="glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem' }}>
-                    <div>
-                      <strong style={{ fontSize: '0.9rem', color: '#FFFFFF' }}>{r.name}</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        Distance: <span style={{ color: 'var(--primary-cyan)' }}>{r.distanceKm} km</span> • ETA: <strong>{r.etaMins} mins</strong>
-                      </div>
+            {/* RESCUEABILITY ENGINE EVALUATION RESULTS: GEOGRAPHICALLY NEAREST VS OPERATIONALLY RECOMMENDED */}
+            {rescueEvaluation && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 700 }}>RESCUEABILITY ENGINE EVALUATION:</h4>
+
+                {/* GEOGRAPHICALLY NEAREST UNIT */}
+                {rescueEvaluation.geographicallyNearest && (
+                  <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', borderLeft: '3px solid var(--accent-amber)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-amber)', fontWeight: 700 }}>GEOGRAPHICALLY NEAREST</span>
+                      <span className="badge badge-amber">{rescueEvaluation.geographicallyNearest.geoDistanceKm} km</span>
                     </div>
-                    <button className="btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
-                      <PhoneCall size={14} /> Dispatch
+                    <strong style={{ fontSize: '0.9rem', color: '#FFFFFF' }}>{rescueEvaluation.geographicallyNearest.name}</strong>
+                    {rescueEvaluation.geographicallyNearest.isBlocked && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-rose)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <AlertOctagon size={14} /> IMPASSABLE: {rescueEvaluation.geographicallyNearest.blockageReason}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* OPERATIONALLY RECOMMENDED UNIT */}
+                {rescueEvaluation.operationallyRecommended && (
+                  <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', borderLeft: '3px solid var(--accent-emerald)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)', fontWeight: 700 }}>OPERATIONALLY RECOMMENDED</span>
+                      <span className="badge badge-safe">ETA: {rescueEvaluation.operationallyRecommended.feasibleETAMins} mins</span>
+                    </div>
+                    <strong style={{ fontSize: '0.9rem', color: '#FFFFFF' }}>{rescueEvaluation.operationallyRecommended.name}</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Distance: {rescueEvaluation.operationallyRecommended.geoDistanceKm} km • Capabilities: {rescueEvaluation.operationallyRecommended.matchedCaps?.join(', ') || '100% Match'}
+                    </span>
+                    <button className="btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                      <PhoneCall size={14} /> Dispatch Recommended Unit
                     </button>
                   </div>
-                ))}
+                )}
+
+                {/* OPERATIONAL DIVERGENCE EXPLANATION CALLOUT */}
+                {rescueEvaluation.divergenceExplanation && (
+                  <div className="glass-card" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '10px', padding: '0.75rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-amber)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <AlertTriangle size={14} /> OPERATIONAL DIVERGENCE EXPLANATION:
+                    </span>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-main)', marginTop: '0.3rem', lineHeight: 1.4 }}>
+                      {rescueEvaluation.divergenceExplanation}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

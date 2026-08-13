@@ -12,12 +12,23 @@ module.exports = {
 
   async matchNearest(req, res, next) {
     try {
-      const { lat, lon } = req.body;
+      const { lat, lon, requiredCapabilities } = req.body;
       if (lat === undefined || lon === undefined) {
         return res.status(400).json({ error: 'INVALID_INPUT: lat and lon required' });
       }
-      const nearestResponders = await responderRepository.findNearestResponders(parseFloat(lat), parseFloat(lon));
-      res.json({ nearestResponders });
+
+      const evaluation = await responderRepository.matchResponders(
+        parseFloat(lat),
+        parseFloat(lon),
+        requiredCapabilities || ['MEDICAL', 'ROPE']
+      );
+
+      res.json({
+        geographicallyNearest: evaluation.geographicallyNearest,
+        operationallyRecommended: evaluation.operationallyRecommended,
+        divergenceExplanation: evaluation.divergenceExplanation,
+        nearestResponders: evaluation.sortedResponders
+      });
     } catch (err) {
       next(err);
     }
