@@ -33,4 +33,10 @@ interface OutboxDao {
 
   @Query("UPDATE outbox SET status = 'FAILED', errorMessage = :reason, attemptCount = attemptCount + 1, lastAttemptTime = :lastAttemptTime WHERE packetId = :packetId")
   suspend fun markFailed(packetId: String, reason: String, lastAttemptTime: Long = System.currentTimeMillis())
+
+  @Query("SELECT * FROM outbox WHERE status = 'FAILED' AND attemptCount < 10 ORDER BY createdAt ASC")
+  suspend fun getFailedPackets(): List<OutboxEntity>
+
+  @Query("UPDATE outbox SET status = 'SENDING', attemptCount = attemptCount + 1, lastAttemptTime = :lastAttemptTime WHERE packetId = :packetId")
+  suspend fun markRetrying(packetId: String, lastAttemptTime: Long = System.currentTimeMillis())
 }

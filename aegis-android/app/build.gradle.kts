@@ -114,4 +114,10 @@ dependencies {
   // Network: OkHttp with WebSocket support + kotlinx.serialization JSON
   implementation(libs.okhttp)
   implementation(libs.kotlinx.serialization.json)
+
+  // Cryptography: Bouncy Castle for canonical Keccak-256 hash (matches Solidity/Ethers)
+  implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+
+  // QR Code: ZXing for real ISO 18004 scannable QR codes
+  implementation("com.google.zxing:core:3.5.3")
 }

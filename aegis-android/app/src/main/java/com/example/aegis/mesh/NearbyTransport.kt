@@ -52,9 +52,11 @@ class NearbyTransport(
       val authToken = connectionInfo.authenticationDigits
       val isAuthValid = authToken != null && authToken.length == 4
 
-      if (isAuthValid || true) { // Perform connection authentication without skipping handshake
+      if (isAuthValid) {
+        // Auth token validated — accept connection and register payload handler
         connectionsClient.acceptConnection(endpointId, payloadCallback)
       } else {
+        // Reject unauthenticated peers to prevent packet injection
         connectionsClient.rejectConnection(endpointId)
       }
     }
@@ -103,10 +105,8 @@ class NearbyTransport(
 
         // Dispatch incoming packet to RelayInbox
         relayInbox?.let { inbox ->
-          kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).run {
-            kotlinx.coroutines.runBlocking {
-              inbox.receiveRelayPacket(packet)
-            }
+          kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            inbox.receiveRelayPacket(packet)
           }
         }
       }
@@ -174,37 +174,19 @@ class NearbyTransport(
     _activePeers.value = connectedEndpoints.values.toList()
   }
 
-  private fun serializeRescuePacketJson(packet: RescuePacket): String {
-    return """
-      {
-        "packetId": "${packet.packetId}",
-        "touristId": "${packet.touristId}",
-        "lat": ${packet.latitude ?: "null"},
-        "lon": ${packet.longitude ?: "null"},
-        "batteryPct": ${packet.batteryPercent ?: "null"},
-        "hopCount": ${packet.hopCount},
-        "ttl": ${packet.ttl},
-        "priority": "${packet.priority}"
-      }
-    """.trimIndent()
+  private val json = kotlinx.serialization.json.Json {
+    ignoreUnknownKeys = true
+    encodeDefaults = true
   }
 
-  private fun parseRescuePacketJson(json: String): RescuePacket? {
-    return try {
-      val packetIdMatch = Regex("\"packetId\":\\s*\"([^\"]+)\"").find(json)?.groupValues?.get(1) ?: return null
-      val touristIdMatch = Regex("\"touristId\":\\s*\"([^\"]+)\"").find(json)?.groupValues?.get(1) ?: "TST-PEER"
-      val hopCountMatch = Regex("\"hopCount\":\\s*(\\d+)").find(json)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-      val ttlMatch = Regex("\"ttl\":\\s*(\\d+)").find(json)?.groupValues?.get(1)?.toIntOrNull() ?: 5
-      val priorityMatch = Regex("\"priority\":\\s*\"([^\"]+)\"").find(json)?.groupValues?.get(1) ?: "CRITICAL"
+  private fun serializeRescuePacketJson(packet: RescuePacket): String {
+    return json.encodeToString(RescuePacket.serializer(), packet)
+  }
 
-      RescuePacket(
-        packetId = packetIdMatch,
-        touristId = touristIdMatch,
-        hopCount = hopCountMatch,
-        ttl = ttlMatch,
-        priority = priorityMatch,
-        transportUsed = "BLE_MESH",
-      )
+  private fun parseRescuePacketJson(jsonStr: String): RescuePacket? {
+    return try {
+      val parsed = json.decodeFromString(RescuePacket.serializer(), jsonStr)
+      parsed.copy(transportUsed = "BLE_MESH")
     } catch (e: Exception) {
       null
     }

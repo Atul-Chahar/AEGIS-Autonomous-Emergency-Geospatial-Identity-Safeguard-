@@ -3,9 +3,9 @@ pragma solidity ^0.8.20;
 
 /**
  * @title AegisTouristID
- * @dev Privacy-Preserving Blockchain Tourist Identity & Proof Registry
- * Zero-Knowledge proof mechanism: Stores ONLY keccak256 hashes of tourist IDs,
- * trip expiry timestamps, and cryptographic validity vouchers.
+ * @dev Privacy-Preserving Ephemeral Pseudonymous Identity Commitment Registry
+ * Stores ONLY keccak256 hashes of tourist IDs (keccak256(touristId + ":" + salt)),
+ * trip validity timestamps, and cryptographic vouchers.
  * No raw PII (Passport, Aadhaar, phone numbers) is ever stored on-chain.
  */
 contract AegisTouristID {
@@ -14,7 +14,7 @@ contract AegisTouristID {
     enum Status { ACTIVE, EXPIRED, REVOKED }
 
     struct IDVoucher {
-        bytes32 idHash;             // keccak256(TouristID + Salt)
+        bytes32 idHash;             // keccak256(TouristID + ":" + Salt)
         bytes32 itineraryHash;      // keccak256(Itinerary Details)
         uint256 validFrom;
         uint256 validTo;
@@ -45,7 +45,7 @@ contract AegisTouristID {
 
     /**
      * @dev Register a new ephemeral tourist ID voucher on-chain
-     * @param _idHash Hashed commitment of Tourist ID + Salt
+     * @param _idHash Hashed commitment of keccak256(Tourist ID + ":" + Salt)
      * @param _itineraryHash Hashed commitment of planned trip itinerary
      * @param _validDays Duration of validity in days
      */

@@ -120,7 +120,7 @@ class LocationSanityChecker(
     )
   }
 
-  private fun lastLastValid(): LocationResult.Success = history[history.size - 1]
+  private fun lastLastValid(): LocationResult.Success = history[history.size - 2]
 
   @Synchronized
   fun clearHistory() {

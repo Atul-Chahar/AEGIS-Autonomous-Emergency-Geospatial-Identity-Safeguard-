@@ -80,7 +80,9 @@ import com.example.aegis.ui.ZoneArtwork
 import com.example.aegis.ui.components.AegisBackground
 import com.example.aegis.ui.components.AegisBottomNavScaffold
 import com.example.aegis.ui.components.BottomNavItem
-import com.example.aegis.ui.components.FakeQr
+import com.example.aegis.qr.QrCodeGenerator
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.FilterQuality
 import com.example.aegis.ui.components.FilterPill
 import com.example.aegis.ui.components.GlassCard
 import com.example.aegis.ui.components.MetaItem
@@ -348,7 +350,12 @@ private fun ScanIdButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
       modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-      FakeQr(modifier = Modifier.size(30.dp), tint = Ink)
+      Image(
+        bitmap = QrCodeGenerator.generateQrCodeBitmap("aegis:scan", 120, 120),
+        contentDescription = "QR Code",
+        modifier = Modifier.size(30.dp),
+        filterQuality = FilterQuality.None,
+      )
       Spacer(modifier = Modifier.height(6.dp))
       Text(
         text = "Scan ID",
@@ -494,7 +501,15 @@ private fun GuardianIdStrip(identity: TouristIdentity?, onClick: () -> Unit, mod
             .background(ForestDark),
         contentAlignment = Alignment.Center,
       ) {
-        FakeQr(modifier = Modifier.size(40.dp), tint = Color.White)
+        Image(
+          bitmap = QrCodeGenerator.generateQrCodeBitmap(
+            identity?.touristId ?: "AEGIS-TOURIST",
+            160, 160,
+          ),
+          contentDescription = "Tourist ID QR Code",
+          modifier = Modifier.size(40.dp),
+          filterQuality = FilterQuality.None,
+        )
       }
       Spacer(modifier = Modifier.width(14.dp))
       Column(modifier = Modifier.weight(1f)) {

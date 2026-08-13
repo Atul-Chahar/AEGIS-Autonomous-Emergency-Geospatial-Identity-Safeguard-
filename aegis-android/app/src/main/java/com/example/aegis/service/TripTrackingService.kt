@@ -69,7 +69,7 @@ class TripTrackingService : Service() {
 
   private var locationJob: Job? = null
   private var currentTripId: String? = null
-  private var currentActivityMode: String = "STATIONARY"
+  private var currentActivityMode: String = "STILL"
 
   override fun onCreate() {
     super.onCreate()
@@ -153,9 +153,9 @@ class TripTrackingService : Service() {
             latitude = locResult.latitude,
             longitude = locResult.longitude,
             horizontalAccuracyMeters = locResult.accuracyMeters,
-            altitudeMeters = null,
-            speedMps = 0f,
-            bearingDegrees = 0f,
+            altitudeMeters = locResult.altitudeMeters,
+            speedMps = locResult.speedMps ?: 0f,
+            bearingDegrees = locResult.bearingDegrees ?: 0f,
             batteryPercent = batteryPct,
             activityMode = currentActivityMode,
             locationSource = "FUSED",

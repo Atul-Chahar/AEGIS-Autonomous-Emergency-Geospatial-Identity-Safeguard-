@@ -8,6 +8,8 @@ import com.example.aegis.data.remote.dto.SosRequestDto
 import com.example.aegis.domain.model.RescuePacket
 import com.example.aegis.domain.model.SosDispatchResult
 import com.example.aegis.domain.model.SosRequest
+import com.example.aegis.service.SosRetryWorker
+import android.content.Context
 import kotlinx.coroutines.flow.firstOrNull
 import java.util.UUID
 
@@ -16,6 +18,7 @@ class RealEmergencyRepository(
   private val api: AegisApi? = null,
   private val blackBoxRepository: BlackBoxRepository? = null,
   private val smsAdapter: SmsFallbackAdapter = SmsFallbackAdapter(),
+  private val appContext: Context? = null,
 ) : EmergencyRepository {
 
   override suspend fun dispatchSos(request: SosRequest): SosDispatchResult {
@@ -96,6 +99,8 @@ class RealEmergencyRepository(
       } catch (e: Exception) {
         // HTTPS transmission failed / offline -> Outbox remains PENDING
         outboxDao.markFailed(packet.packetId, e.message ?: "Network unreachable")
+        // Enqueue WorkManager retry for when connectivity returns
+        appContext?.let { SosRetryWorker.enqueueRetry(it) }
       }
     }
 
@@ -108,15 +113,9 @@ class RealEmergencyRepository(
   }
 
   private fun serializeRescuePacket(packet: RescuePacket): String {
-    return """
-      {
-        "packetId": "${packet.packetId}",
-        "touristId": "${packet.touristId}",
-        "lat": ${packet.latitude ?: "null"},
-        "lon": ${packet.longitude ?: "null"},
-        "batteryPct": ${packet.batteryPercent ?: "null"},
-        "isStale": ${packet.isStaleLocation}
-      }
-    """.trimIndent()
+    return kotlinx.serialization.json.Json.encodeToString(
+      RescuePacket.serializer(),
+      packet,
+    )
   }
 }

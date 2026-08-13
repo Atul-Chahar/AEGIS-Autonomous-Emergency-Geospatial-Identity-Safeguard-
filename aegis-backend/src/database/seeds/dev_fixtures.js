@@ -5,9 +5,74 @@
  */
 module.exports = {
   devResponders: [
-    { id: 'RES-01', name: 'Meghalaya S&R Unit 1 [DEV FIXTURE]', type: 'RESCUE', lat: 25.148, lon: 91.270, status: 'AVAILABLE', capabilities: ['RAPID_ASCENT', 'MEDICAL_STABILIZATION'] },
-    { id: 'POL-04', name: 'Cherrapunji District Police [DEV FIXTURE]', type: 'POLICE', lat: 25.280, lon: 91.720, status: 'AVAILABLE', capabilities: ['GEO_PATROL', 'DISPATCH'] },
-    { id: 'MED-02', name: 'Shillong Civil Medical Rapid [DEV FIXTURE]', type: 'MEDICAL', lat: 25.570, lon: 91.880, status: 'AVAILABLE', capabilities: ['TRAUMA_CARE', 'EVACUATION'] }
+    {
+      id: 'RES-01',
+      name: 'Responder A (Cherrapunji Station)',
+      type: 'RESCUE',
+      lat: 25.148,
+      lon: 91.270,
+      status: 'AVAILABLE',
+      vehicle: 'FOOT_PATROL',
+      medicalCapability: true,
+      ropeMountainCapability: false,
+      waterRescueCapability: false,
+      teamSize: 2,
+      primarySegmentId: 'SEG-DAWKI-BRIDGE'
+    },
+    {
+      id: 'RES-02',
+      name: 'Responder B (Shillong Mountain S&R)',
+      type: 'RESCUE',
+      lat: 25.185,
+      lon: 91.315,
+      status: 'AVAILABLE',
+      vehicle: '4WD_AMBULANCE',
+      medicalCapability: true,
+      ropeMountainCapability: true,
+      waterRescueCapability: true,
+      teamSize: 5,
+      primarySegmentId: 'SEG-SHILLONG-HWY'
+    },
+    {
+      id: 'POL-04',
+      name: 'District Highway Patrol Unit 4',
+      type: 'POLICE',
+      lat: 25.280,
+      lon: 91.720,
+      status: 'AVAILABLE',
+      vehicle: 'RESCUE_TRUCK',
+      medicalCapability: true,
+      ropeMountainCapability: false,
+      waterRescueCapability: false,
+      teamSize: 3,
+      primarySegmentId: 'SEG-MAIN-HWY'
+    }
+  ],
+  devRouteSegments: [
+    {
+      segmentId: 'SEG-DAWKI-BRIDGE',
+      responderId: 'RES-01',
+      fromNode: 'Cherrapunji Station',
+      toNode: 'Dawki Canyon Target',
+      distanceKm: 3.0,
+      expectedTravelTimeMins: 8.0,
+      surfaceType: 'PAVED',
+      slopeCost: 1.0,
+      isBlocked: true,
+      hazard: 'Dawki River Bridge BLOCKED by Landslide Collapse'
+    },
+    {
+      segmentId: 'SEG-SHILLONG-HWY',
+      responderId: 'RES-02',
+      fromNode: 'Shillong Station',
+      toNode: 'Dawki Canyon Target',
+      distanceKm: 7.0,
+      expectedTravelTimeMins: 14.0,
+      surfaceType: 'PAVED',
+      slopeCost: 1.1,
+      isBlocked: false,
+      hazard: null
+    }
   ],
   devGeofences: [
     {

@@ -1,11 +1,16 @@
 package com.example.aegis.domain.model
 
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /**
  * Transport-independent emergency packet.
  * Can be serialized over HTTPS, WebSockets, compact SMS, or BLE Mesh.
+ *
+ * Annotated with @Serializable for type-safe kotlinx.serialization JSON encoding,
+ * replacing fragile string-template interpolation.
  */
+@Serializable
 data class RescuePacket(
   val packetId: String = UUID.randomUUID().toString(),
   val version: Int = 1,
