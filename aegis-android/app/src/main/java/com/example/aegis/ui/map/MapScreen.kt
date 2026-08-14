@@ -212,7 +212,10 @@ private fun RealOsmMap(state: MapUiState, modifier: Modifier = Modifier) {
   val context = LocalContext.current
   val mapView =
     remember {
-      Configuration.getInstance().userAgentValue = context.packageName
+      // OSM's tile policy blocks bare package names / default osmdroid UA
+      // (HTTP 403 "Access blocked" tiles). Use a descriptive, versioned UA.
+      Configuration.getInstance().userAgentValue =
+        "AEGIS-Android/1.0 (offline emergency safety app; github.com/Atul-Chahar/AEGIS)"
       MapView(context).apply {
         setTileSource(TileSourceFactory.MAPNIK)
         setMultiTouchControls(true)

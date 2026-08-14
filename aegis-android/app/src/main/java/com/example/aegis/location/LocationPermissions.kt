@@ -15,9 +15,14 @@ object LocationPermissions {
     )
 
   /**
-   * Permissions needed to start a tracked journey: location for the BlackBox
-   * breadcrumbs, POST_NOTIFICATIONS (Android 13+) for the foreground tracking
-   * notification, and Bluetooth (Android 12+) for the offline peer relay.
+   * Permissions needed to start a tracked journey:
+   *  - location for the BlackBox breadcrumbs,
+   *  - POST_NOTIFICATIONS (Android 13+) for the foreground tracking notification,
+   *  - Bluetooth (Android 12+) for the offline peer relay (Nearby Connections),
+   *  - NEARBY_WIFI_DEVICES (Android 13+) so the mesh can also relay over WiFi Direct,
+   *  - ACTIVITY_RECOGNITION so TripTrackingService's inactivity monitor works
+   *    (declared in the manifest but must be runtime-requested; on API < 29 it
+   *    is auto-granted at install and requesting it is a harmless no-op).
    */
   val requiredForTrip: Array<String> =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -27,6 +32,8 @@ object LocationPermissions {
         Manifest.permission.POST_NOTIFICATIONS,
         Manifest.permission.BLUETOOTH_SCAN,
         Manifest.permission.BLUETOOTH_CONNECT,
+        Manifest.permission.NEARBY_WIFI_DEVICES,
+        Manifest.permission.ACTIVITY_RECOGNITION,
       )
     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       arrayOf(
@@ -34,9 +41,10 @@ object LocationPermissions {
         Manifest.permission.ACCESS_COARSE_LOCATION,
         Manifest.permission.BLUETOOTH_SCAN,
         Manifest.permission.BLUETOOTH_CONNECT,
+        Manifest.permission.ACTIVITY_RECOGNITION,
       )
     } else {
-      required
+      required + arrayOf(Manifest.permission.ACTIVITY_RECOGNITION)
     }
 
   fun isGranted(context: Context, permissions: Array<String> = requiredForTrip): Boolean =

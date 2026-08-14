@@ -32,6 +32,7 @@ import com.example.aegis.ui.zone.ZoneDetailScreen
 import com.example.aegis.ui.zone.ZoneDetailViewModel
 import com.example.aegis.ui.zones.ZonesScreen
 import com.example.aegis.ui.zones.ZonesViewModel
+import com.example.aegis.ui.permissions.rememberLocationPermissionState
 import com.example.aegis.ui.zoneDetailViewModelFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -104,9 +105,15 @@ fun MainNavigation() {
         entry<TripSetup> {
           val context = LocalContext.current
           val scope = rememberCoroutineScope()
+          // Full runtime permission set for a tracked journey: location,
+          // notifications, Bluetooth + WiFi (mesh), activity recognition.
+          val tripPermission = rememberLocationPermissionState()
           TripSetupScreen(
             onBack = { popBackStack(backStack) },
             onStartJourney = {
+              if (!tripPermission.isGranted) {
+                tripPermission.request()
+              }
               // Start the REAL BlackBox trip: foreground service + peer relay.
               val container = (context.applicationContext as AegisApplication).container
               scope.launch {
