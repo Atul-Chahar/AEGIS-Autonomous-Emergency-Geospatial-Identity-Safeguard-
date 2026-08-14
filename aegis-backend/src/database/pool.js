@@ -1,22 +1,34 @@
 const { Pool } = require('pg');
 const env = require('../config/env');
+const fixtures = require('./seeds/dev_fixtures');
 
 class AegisDbPool {
   constructor() {
     this.isPostgresConnected = false;
     this.pgPool = null;
 
-    // In-Memory Database Fallback for offline testing / zero-dependency runs
+    // In-Memory Database Fallback seeded with comprehensive Meghalaya fixtures
+    const touristMap = new Map();
+    (fixtures.devTourists || []).forEach(t => touristMap.set(t.touristId, t));
+
+    const tripMap = new Map();
+    (fixtures.devTrips || []).forEach(t => tripMap.set(t.id, t));
+
+    const allBreadcrumbs = [];
+    Object.values(fixtures.devBreadcrumbs || {}).forEach(trail => {
+      if (Array.isArray(trail)) allBreadcrumbs.push(...trail);
+    });
+
     this.memoryStore = {
-      tourists: new Map(),
-      trips: new Map(),
-      breadcrumbs: [],
-      incidents: [],
+      tourists: touristMap,
+      trips: tripMap,
+      breadcrumbs: allBreadcrumbs,
+      incidents: [...(fixtures.devIncidents || [])],
       incidentEvents: [],
       checkIns: [],
-      hazardReports: [],
-      safetyZones: [],
-      responderUnits: [],
+      hazardReports: [...(fixtures.devHazards || [])],
+      safetyZones: [...(fixtures.devGeofences || [])],
+      responderUnits: [...(fixtures.devResponders || [])],
       responderCapabilities: [],
       relayReceipts: new Map(),
     };
@@ -42,7 +54,7 @@ class AegisDbPool {
         this.isPostgresConnected = true;
         console.log('✅ Connected to PostgreSQL / PostGIS database');
       } catch (err) {
-        console.warn('⚠️ PostgreSQL connection unestablished; utilizing in-memory spatial pool fallback.');
+        console.warn('⚠️ PostgreSQL connection unestablished; utilizing in-memory spatial pool fallback with rich dev fixtures.');
         this.isPostgresConnected = false;
       }
     }

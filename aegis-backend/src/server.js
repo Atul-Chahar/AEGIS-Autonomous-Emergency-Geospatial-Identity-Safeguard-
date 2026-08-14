@@ -9,8 +9,8 @@ const server = http.createServer(app);
 const { broadcast } = setupWebSocketServer(server);
 app.set('wsBroadcaster', broadcast);
 
-server.listen(env.port, () => {
-  console.log(`🛡️ AEGIS API Gateway running on port ${env.port} (${env.nodeEnv})`);
+server.listen(env.port, '0.0.0.0', () => {
+  console.log(`🛡️ AEGIS API Gateway running on port ${env.port} on 0.0.0.0 (${env.nodeEnv})`);
 });
 
 module.exports = server;
