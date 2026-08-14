@@ -64,6 +64,20 @@ cd aegis-android && ./gradlew test
 
 > **No fake data**: the backend seeds no telemetry. Every incident, trip and breadcrumb on the dashboard originated from a real device action.
 
+#### 📡 No-Internet Relay Demo (two phones)
+
+The peer relay lets a phone with **no internet** get its SOS to the backend through a nearby phone that **has** internet — via BLE (Google Nearby Connections).
+
+1. Install the debug APK on **both** phones. Point the app at your backend: `adb shell am start -a android.intent.action.VIEW -e aegis_backend_base_url http://<YOUR-LAN-IP>:5000` (or rebuild with the LAN IP in `BuildConfig`).
+2. On **both** phones: start a trip (this arms BLE advertising/discovery and requests Location + Notifications + Bluetooth).
+3. Keep the phones within a few metres of each other so they can discover and pair over BLE.
+4. On **Phone A** (the offline one): toggle **Airplane mode ON** (Wi-Fi/BT can stay on for BLE — Nearby uses classic BT/BLE, so keep Bluetooth enabled).
+5. Tap **🚨 SOS → press-and-hold**. Steps show: "Emergency recorded ✓, Location locked ✓, BlackBox ✓" — and "Sending via internet ✕" → "Searching for offline relay ◌" (honest — no internet on A).
+6. Phone A broadcasts the packet over BLE → **Phone B receives it** (stored in its Room `RelayInbox`), and since B has internet, `SosRetryWorker` flushes it to the backend as channel **`BLE_MESH_RELAY`** with A's **real coordinates**.
+7. The incident appears live on the dashboard with a map pin — same UI as a direct SOS, but delivered via the relay chain.
+
+> ⚠️ Emulator caveat: the emulator cannot form a BLE mesh with itself. The full relay chain (backend `BLE_MESH_RELAY` ingestion + WS broadcast with geo payload, relay outbox flush with real coords) is verified against the backend; the radio link itself needs two physical phones.
+
 ---
 
 ## Component Deep Dives

@@ -80,9 +80,14 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
 7. **AEGIS Offline Peer Relay (Google Nearby Connections)**:
    - **`NearbyTransport`**: Google Nearby Connections driver implementing advertising (`Strategy.P2P_CLUSTER`), discovery, authenticated connection handshakes (`onConnectionInitiated` token authentication), and byte payload exchange (`Payload.fromBytes()`).
    - **`RelayInbox` & `RelayInboxDao`**: Room-backed local relay storage (`RelayInboxEntity`). Phone B stores incoming packets locally from Phone A. **Phone A can turn off; Phone B safely retains the packet in Room database.**
-   - **`RelayOutbox`**: When Phone B connects to internet, reads stored pending relay packets from `RelayInboxDao` (ordered by `priority DESC, receivedAt ASC`) and forwards them to backend `/api/sos`.
+   - **`RelayOutbox`**: When Phone B connects to internet, reads stored pending relay packets from `RelayInboxDao` (ordered by `priority DESC, receivedAt ASC`) and forwards them to backend `/api/sos` with **channel `BLE_MESH_RELAY` and the origin tourist's real lat/lon/battery** parsed from the stored packet JSON (never placeholder coordinates). Wired into `AppContainer` with the real OkHttp API (previously constructed without it, so flushes silently no-op'd — fixed).
    - **`PacketDeduplicator`**: In-memory + Room bloom filter enforcing loop prevention, hop count incrementing (`hopCount + 1`), and TTL/expiration checks. SOS packets are never duplicated indefinitely.
+   - **SOS → mesh hook**: `RealEmergencyRepository.dispatchSos` now broadcasts the `RescuePacket` to connected peers via `NearbyTransport.sendPacketToPeers()` immediately after the outbox write — the peer relay is part of the live dispatch path, not a dead code path.
+   - **Relay flush trigger**: `SosRetryWorker` flushes stored relay packets to `/api/sos` (channel `BLE_MESH_RELAY`) whenever connectivity returns, alongside the direct outbox retries.
+   - **Permissions**: `BLUETOOTH_SCAN`/`BLUETOOTH_CONNECT` (API 31+) declared in the manifest and requested at trip start so the mesh can actually arm on modern devices.
    - **Honest UI Integration**: UI displays `"Mesh Active"` **ONLY** when `NearbyTransport` is actively advertising or discovering. UI peer count reflects **REAL** connected Nearby devices (`activePeers.size`), eliminating mock data.
+
+   > ⚠️ **Verified**: backend ingestion of `BLE_MESH_RELAY` with real coordinates confirmed live (incident persisted + WS broadcast with geo payload). Two-device BLE link requires two physical phones (Nearby Connections is a peer-to-peer radio feature; the emulator can't form a mesh with itself). See `docs/DEVELOPER_GUIDE.md` for the two-phone demo runbook.
 
 8. **AEGIS Outbox Pattern & Backend Connection**:
    - **`RescuePacket`**: Transport-independent packet model containing `packetId` (UUID), `version`, `eventType`, `priority`, `touristId`, `tripId`, `timestamp`, `latitude`, `longitude`, `locationAccuracy`, `batteryPercent`, `activityMode`, `incidentConfidence`, `latestBreadcrumbId`, `createdAt`, `hopCount`, `ttl`, `signature`, and `transportUsed`.
