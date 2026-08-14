@@ -8,6 +8,7 @@ import com.example.aegis.data.remote.dto.SosRequestDto
 import com.example.aegis.domain.model.RescuePacket
 import com.example.aegis.domain.model.SosDispatchResult
 import com.example.aegis.domain.model.SosRequest
+import com.example.aegis.mesh.NearbyTransport
 import com.example.aegis.service.SosRetryWorker
 import android.content.Context
 import kotlinx.coroutines.flow.firstOrNull
@@ -19,6 +20,8 @@ class RealEmergencyRepository(
   private val blackBoxRepository: BlackBoxRepository? = null,
   private val smsAdapter: SmsFallbackAdapter = SmsFallbackAdapter(),
   private val appContext: Context? = null,
+  /** Offline peer relay: broadcasts the packet to nearby devices that have internet. */
+  private val nearbyTransport: NearbyTransport? = null,
 ) : EmergencyRepository {
 
   override suspend fun dispatchSos(request: SosRequest): SosDispatchResult {
@@ -69,7 +72,11 @@ class RealEmergencyRepository(
 
     val smsPayload = smsAdapter.formatSmsPayload(packet)
 
-    // 4. Attempt ONLINE HTTPS delivery if API is available
+    // 4. Offline peer relay: hand the packet to nearby devices (which may
+    // have internet) so it can still reach the gateway without cellular data.
+    val meshDelivered = nearbyTransport?.sendPacketToPeers(packet) == true
+
+    // 5. Attempt ONLINE HTTPS delivery if API is available
     if (api != null) {
       try {
         val dto = SosRequestDto(
@@ -104,11 +111,16 @@ class RealEmergencyRepository(
       }
     }
 
-    // 5. OFFLINE FALLBACK: Return Pending state with SMS handoff ready payload
+    // 6. OFFLINE FALLBACK: Return Pending state with SMS handoff ready payload
     return SosDispatchResult.PendingSmsFallback(
       packetId = packet.packetId,
       smsPayload = smsPayload,
-      reason = "Waiting for connectivity — SMS handoff ready",
+      reason =
+        if (meshDelivered) {
+          "Waiting for connectivity — packet handed to a nearby relay device"
+        } else {
+          "Waiting for connectivity — SMS handoff ready"
+        },
     )
   }
 

@@ -60,6 +60,14 @@ class SosRetryWorker(
     val outboxDao = container.database.outboxDao()
     val api = container.aegisApi
 
+    // Also flush packets relayed to this device by nearby offline peers
+    // (they may not have internet themselves).
+    try {
+      container.relayOutbox.flushPendingRelaysToBackend()
+    } catch (e: Exception) {
+      // Relay flush is best-effort; direct outbox retries below still run.
+    }
+
     val pendingPackets = outboxDao.getPendingPackets()
     val failedPackets = outboxDao.getFailedPackets()
     val allRetryable = (pendingPackets + failedPackets).distinctBy { it.packetId }

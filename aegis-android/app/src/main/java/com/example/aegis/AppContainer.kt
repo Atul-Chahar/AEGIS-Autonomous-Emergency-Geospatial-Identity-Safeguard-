@@ -43,6 +43,7 @@ class AppContainer(context: Context) {
       api = aegisApi,
       blackBoxRepository = blackBoxRepository,
       appContext = appContext,
+      nearbyTransport = nearbyTransport,
     )
   }
   val identityRepository: IdentityRepository = DemoIdentityRepository()
@@ -61,7 +62,7 @@ class AppContainer(context: Context) {
   // Real Peer Relay Mesh components
   val packetDeduplicator by lazy { com.example.aegis.mesh.PacketDeduplicator() }
   val relayInbox by lazy { com.example.aegis.mesh.RelayInbox(database.relayInboxDao(), packetDeduplicator) }
-  val relayOutbox by lazy { com.example.aegis.mesh.RelayOutbox(database.relayInboxDao()) }
+  val relayOutbox by lazy { com.example.aegis.mesh.RelayOutbox(relayInboxDao = database.relayInboxDao(), api = aegisApi) }
   val nearbyTransport by lazy { com.example.aegis.mesh.NearbyTransport(appContext, relayInbox) }
 
   // True while the global SOS overlay is open. Owned by EmergencyViewModel;

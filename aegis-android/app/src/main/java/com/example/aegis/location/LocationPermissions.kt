@@ -16,8 +16,8 @@ object LocationPermissions {
 
   /**
    * Permissions needed to start a tracked journey: location for the BlackBox
-   * breadcrumbs plus POST_NOTIFICATIONS (Android 13+) so the foreground
-   * tracking notification is actually visible.
+   * breadcrumbs, POST_NOTIFICATIONS (Android 13+) for the foreground tracking
+   * notification, and Bluetooth (Android 12+) for the offline peer relay.
    */
   val requiredForTrip: Array<String> =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -25,6 +25,15 @@ object LocationPermissions {
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION,
         Manifest.permission.POST_NOTIFICATIONS,
+        Manifest.permission.BLUETOOTH_SCAN,
+        Manifest.permission.BLUETOOTH_CONNECT,
+      )
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION,
+        Manifest.permission.BLUETOOTH_SCAN,
+        Manifest.permission.BLUETOOTH_CONNECT,
       )
     } else {
       required
