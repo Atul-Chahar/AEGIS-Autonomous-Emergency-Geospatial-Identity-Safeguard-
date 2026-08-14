@@ -96,9 +96,10 @@ com.example.aegis/
 │   │   ├── entity/            # Room entities matching Prompts spec
 │   │   └── security/          # BlackBoxEncryptor (AES-GCM, Android Keystore)
 │   ├── remote/
-│   │   ├── AegisApi.kt        # Backend REST interface (not yet implemented)
+│   │   ├── AegisApi.kt        # Backend REST interface (OkHttp impl: OkHttpAegisApi)
 │   │   └── SmsFallbackAdapter # SMS-based SOS fallback (Intent-based, no paid API)
-│   └── repository/            # Real + Demo repository implementations
+│   └── repository/            # Real repositories + preview-only demo repos
+│       ├── LocalIdentityRepository # Unique per-install TST-XXXXXX ID, auto-registers keccak256 voucher
 ├── domain/model/              # RescuePacket, Breadcrumb, Trip, SafetyZone, etc.
 ├── identity/
 │   └── CanonicalIdentityHash  # keccak256(touristId + ":" + salt) via Bouncy Castle

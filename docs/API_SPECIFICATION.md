@@ -19,17 +19,14 @@ Returns gateway operational status and active WebSocket connection count.
 ---
 
 ### `POST /api/identity/register`
-Registers an ephemeral tourist profile and returns on-chain proof hash commitments.
+Registers an ephemeral tourist voucher. **Privacy-first contract:** the request carries only the pseudonymous ID plus a device-generated salt — **no raw PII (passport/Aadhaar/phone) is ever sent or stored**. The backend computes `keccak256(touristId + ":" + salt)` and returns the commitment.
 
-**Request Payload**:
+**Request Payload (as sent by the Android app)**:
 ```json
 {
-  "name": "German Explorer",
-  "passportOrAadhaar": "A12345678",
-  "tripStart": "2026-08-12T00:00:00Z",
-  "tripEnd": "2026-08-20T00:00:00Z",
-  "route": ["Shillong", "Cherrapunji", "Dawki"],
-  "emergencyContact": "+491701234567"
+  "touristId": "TST-TULWYG",
+  "salt": "<16-byte-device-salt-hex>",
+  "validDays": 7
 }
 ```
 
@@ -37,18 +34,20 @@ Registers an ephemeral tourist profile and returns on-chain proof hash commitmen
 ```json
 {
   "success": true,
-  "touristId": "TST-8F29X4",
+  "touristId": "TST-TULWYG",
   "idHash": "0xa7f8e32904b1c5a92d831559b6491f2419a4e7f",
   "itineraryHash": "0x53b40f4fdb39d939939fd44e81e0fc9113a597d",
-  "validDays": 7,
-  "qrPayload": "{\"touristId\":\"TST-8F29X4\",\"idHash\":\"0xa7f8e...\",\"expires\":\"2026-08-20\"}",
-  "blockchainProof": {
-    "contract": "AegisTouristID.sol",
-    "network": "Ethereum Sepolia / Polygon Amoy",
-    "status": "COMMITTED_ON_CHAIN"
-  }
+  "validFrom": "2026-08-14T00:00:00.000Z",
+  "validTo": "2026-08-21T00:00:00.000Z",
+  "transactionHash": "0x...",
+  "contractAddress": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+  "networkChainId": 11155111,
+  "confirmed": true,
+  "contractVoucher": "0xa7f8e32904b1c5a92d831559b6491f2419a4e7f"
 }
 ```
+
+> **Note:** without `SEPOLIA_RPC_URL` + `PRIVATE_KEY` env vars, the backend returns a **deterministic local commitment** (`confirmed` honored by the app UI as "PENDING ON-CHAIN SYNC").
 
 ---
 
@@ -75,15 +74,15 @@ Returns active GeoJSON polygon layers for Safe, Caution, and High Risk zones.
 ### `POST /api/sos`
 Submits an emergency SOS alert via WebSockets or decoded Base64 SMS string fallback.
 
-**Request Payload (WebSocket / HTTP)**:
+**Request Payload (as sent by the Android app / relay outbox)**:
 ```json
 {
-  "touristId": "TST-8F29X4",
-  "idHash": "0xa7f8e32904b1c5a92d831",
-  "lat": 25.145,
-  "lon": 91.265,
-  "batteryPct": 14,
-  "channel": "WEBSOCKET"
+  "packetId": "27ded5a0-91f8-4d70-897b-940c5257592b",
+  "touristId": "TST-TULWYG",
+  "lat": 25.181,
+  "lon": 91.297,
+  "batteryPct": 100,
+  "channel": "HTTPS"   // or "BLE_MESH_RELAY" when flushed by a relay device
 }
 ```
 
@@ -169,7 +168,7 @@ The Android BlackBox syncs the active trip and its breadcrumbs to these idempote
 ```json
 {
   "tripId": "uuid-v4",
-  "touristId": "TST-8F29X4",
+  "touristId": "TST-TULWYG",
   "plannedRouteId": "cherrapunji",
   "status": "ACTIVE",
   "startedAt": 1750000000000
@@ -182,7 +181,7 @@ The Android BlackBox syncs the active trip and its breadcrumbs to these idempote
 {
   "breadcrumbId": "uuid-v4",
   "tripId": "uuid-v4",
-  "touristId": "TST-8F29X4",
+  "touristId": "TST-TULWYG",
   "lat": 25.181,
   "lon": 91.297,
   "accuracyMeters": 5,
@@ -204,7 +203,7 @@ The Android BlackBox syncs the active trip and its breadcrumbs to these idempote
 {
   "subjectId": "trip:TRIP-2026-MEGHALAYA",
   "tripId": "TRIP-2026-MEGHALAYA",
-  "touristId": "TST-8F29X4",
+  "touristId": "TST-TULWYG",
   "idHash": "0x...",
   "incidentId": "INC-...",
   "status": "ACTIVE",

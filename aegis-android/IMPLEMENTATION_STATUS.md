@@ -44,7 +44,19 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
 
 ## 🔵 Preview Data (UI Preview / Temporary Demo Layer)
 
-- **`DemoSafetyZoneRepository` / `DemoIdentityRepository`**: Used strictly as preview/demo data for initial layout testing until remote sync is fully attached. No production feature claims or status screens depend on fake success flags.
+- **`DemoSafetyZoneRepository` / `DemoIdentityRepository`**: Used strictly as preview/demo data inside `@Preview` composables only. Production wiring uses the real repositories:
+  - `RoomSafetyZoneRepository` for zones,
+  - `LocalIdentityRepository` for a **unique per-install** `TST-XXXXXX` ID (persisted) with automatic keccak256 registration against the gateway.
+
+---
+
+## 🟢 Real Mobile Layer (current)
+
+- **Offline-first BlackBox**: trips + breadcrumbs recorded in Room first, synced to gateway via `BreadcrumbSyncWorker` (immediate on trip start + periodic), marked `SYNCED` only after backend ack.
+- **BLE mesh relay**: `NearbyTransport` (Google Nearby Connections) advertises/discovers peers; SOS packets broadcast to peers with real lat/lon; `RelayInbox` stores incoming packets in Room; `RelayOutbox` flushes them to `/api/sos` as `BLE_MESH_RELAY` when connectivity returns.
+- **SOS outbox + retry**: `RealEmergencyRepository` writes the packet to Room `PENDING` first, attempts HTTPS, and `SosRetryWorker` retries on connectivity. UI shows honest step progress — checkmarks only on real success.
+- **Real OSM map**: osmdroid Mapnik tiles with descriptive User-Agent (OSM policy-compliant), zone markers at real centroids, breadcrumb trail polyline, live position.
+- **Permission flow**: trip start requests location, notifications, Bluetooth scan/connect, WiFi-nearby, and activity recognition.
 
 ---
 
