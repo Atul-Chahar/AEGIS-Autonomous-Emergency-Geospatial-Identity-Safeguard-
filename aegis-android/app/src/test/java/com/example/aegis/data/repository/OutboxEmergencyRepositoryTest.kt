@@ -209,6 +209,7 @@ class OutboxEmergencyRepositoryTest {
       override fun observeLatestBreadcrumbForTrip(tripId: String): Flow<Breadcrumb?> = flowOf(null)
       override suspend fun getBreadcrumbsForTrip(tripId: String): List<Breadcrumb> = emptyList()
       override suspend fun getUnsyncedBreadcrumbs(): List<Breadcrumb> = emptyList()
+      override suspend fun markBreadcrumbsSynced(breadcrumbIds: List<String>) {}
     }
 
     val repository = RealEmergencyRepository(outboxDao = fakeOutboxDao, blackBoxRepository = staleBlackBox)

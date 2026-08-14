@@ -62,12 +62,14 @@ data class MapLayerState(
 )
 
 data class MapZoneMarker(
+  val id: String,
   val name: String,
   val subtitle: String,
   val status: ZoneStatus,
 )
 
 data class MapUiState(
+  val guardian: GuardianSystemState,
   val title: String,
   val destination: String,
   val routeSummary: String,
@@ -77,6 +79,8 @@ data class MapUiState(
   val zones: List<MapZoneMarker>,
   val selectedDetailTitle: String,
   val selectedDetailBody: String,
+  /** Real breadcrumb trail (lat, lon) for the active trip — drawn on the OSM map. */
+  val trailPoints: List<Pair<Double, Double>> = emptyList(),
 )
 
 enum class TimelineEventLevel {

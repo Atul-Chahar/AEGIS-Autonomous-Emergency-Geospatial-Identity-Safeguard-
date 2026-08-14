@@ -7,26 +7,19 @@ class AegisDbPool {
     this.isPostgresConnected = false;
     this.pgPool = null;
 
-    // In-Memory Database Fallback seeded with comprehensive Meghalaya fixtures
-    const touristMap = new Map();
-    (fixtures.devTourists || []).forEach(t => touristMap.set(t.touristId, t));
-
-    const tripMap = new Map();
-    (fixtures.devTrips || []).forEach(t => tripMap.set(t.id, t));
-
-    const allBreadcrumbs = [];
-    Object.values(fixtures.devBreadcrumbs || {}).forEach(trail => {
-      if (Array.isArray(trail)) allBreadcrumbs.push(...trail);
-    });
-
+    // In-Memory Database Fallback. Telemetry stores (tourists, trips,
+    // breadcrumbs, incidents, check-ins, hazard reports) start EMPTY and are
+    // filled exclusively by the ingestion APIs from the Android app — never
+    // with fixtures. Only static reference/config data is seeded (safety
+    // geofences and the responder-unit registry).
     this.memoryStore = {
-      tourists: touristMap,
-      trips: tripMap,
-      breadcrumbs: allBreadcrumbs,
-      incidents: [...(fixtures.devIncidents || [])],
+      tourists: new Map(),
+      trips: new Map(),
+      breadcrumbs: [],
+      incidents: [],
       incidentEvents: [],
       checkIns: [],
-      hazardReports: [...(fixtures.devHazards || [])],
+      hazardReports: [],
       safetyZones: [...(fixtures.devGeofences || [])],
       responderUnits: [...(fixtures.devResponders || [])],
       responderCapabilities: [],
@@ -54,7 +47,7 @@ class AegisDbPool {
         this.isPostgresConnected = true;
         console.log('✅ Connected to PostgreSQL / PostGIS database');
       } catch (err) {
-        console.warn('⚠️ PostgreSQL connection unestablished; utilizing in-memory spatial pool fallback with rich dev fixtures.');
+        console.warn('⚠️ PostgreSQL connection unestablished; utilizing in-memory spatial pool fallback (reference data only, telemetry starts empty).');
         this.isPostgresConnected = false;
       }
     }

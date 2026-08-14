@@ -17,7 +17,10 @@ class IncidentService {
       riskScore: 100
     });
 
+    // Spread the full record so the live WS payload carries the geospatial
+    // details the authority dashboard needs to pin the emergency on the map.
     return {
+      ...incident,
       success: true,
       incidentId: incident.id,
       packetId: incident.packetId || packetId,

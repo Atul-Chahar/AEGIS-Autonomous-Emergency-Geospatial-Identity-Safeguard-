@@ -29,4 +29,7 @@ interface BreadcrumbDao {
 
   @Query("SELECT * FROM breadcrumbs WHERE syncState = 'PENDING' ORDER BY timestamp ASC")
   suspend fun getUnsyncedBreadcrumbs(): List<BreadcrumbEntity>
+
+  @Query("UPDATE breadcrumbs SET syncState = 'SYNCED' WHERE breadcrumbId IN (:breadcrumbIds)")
+  suspend fun markBreadcrumbsSynced(breadcrumbIds: List<String>)
 }

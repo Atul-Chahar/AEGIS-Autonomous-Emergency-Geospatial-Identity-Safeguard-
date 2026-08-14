@@ -25,4 +25,17 @@ class RoomCheckInRepository(
   }
 
   override fun observeCheckInCount(): Flow<Int> = checkInDao.observeCount()
+
+  override fun observeRecentCheckIns(): Flow<List<com.example.aegis.domain.model.CheckIn>> =
+    checkInDao.observeRecent().map { entities ->
+      entities.map {
+        com.example.aegis.domain.model.CheckIn(
+          id = it.id,
+          touristId = it.touristId,
+          latitude = it.latitude,
+          longitude = it.longitude,
+          timestampEpochMillis = it.timestampEpochMillis,
+        )
+      }
+    }
 }

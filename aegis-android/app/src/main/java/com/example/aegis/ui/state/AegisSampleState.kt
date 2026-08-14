@@ -127,6 +127,7 @@ object AegisSampleState {
 
   val map =
     MapUiState(
+      guardian = homeActiveTrip.guardian,
       title = "Live Route",
       destination = "Cherrapunji Ridge",
       routeSummary = "3.6 km recorded of 8.4 km planned",
@@ -142,6 +143,7 @@ object AegisSampleState {
       zones =
         previewZones.map {
           MapZoneMarker(
+            id = it.id,
             name = it.name,
             subtitle = it.tagline,
             status = it.status,

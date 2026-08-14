@@ -120,4 +120,7 @@ dependencies {
 
   // QR Code: ZXing for real ISO 18004 scannable QR codes
   implementation("com.google.zxing:core:3.5.3")
+
+  // Real OSM basemap (free, offline-cacheable) — matches the web dashboard's Leaflet map
+  implementation(libs.osmdroid)
 }

@@ -127,7 +127,11 @@ Executes spatial nearest-responder optimization.
 ## 2. WebSockets Protocol (`ws://localhost:5000`)
 
 ### Outbound Events Broadcasted to Command Center:
-* `EMERGENCY_SOS`: Live panic alert triggered by tourist.
+* `EMERGENCY_SOS`: Live panic alert triggered by tourist. Payload is the **full incident record** (`id`, `lat`, `lon`, `touristId`, `batteryPct`, `channel`, `status`) so the dashboard can pin it immediately.
+* `TRIP_STARTED`: A trip was upserted by the Android BlackBox (`POST /api/trips`).
+* `BREADCRUMB_RECORDED`: A breadcrumb was appended by the Android BlackBox (`POST /api/breadcrumbs`).
+* `INCIDENT_STATUS_CHANGED`: An incident advanced through the state machine (`PATCH /api/incidents/:id/status`).
+* `HAZARD_EVALUATED`: A hazard report was confidence-scored by the HazardConfidenceEngine.
 * `HAZARD_ELEVATED`: Zone risk level auto-escalated by crowdsourced reports.
 * `TELEMETRY_UPDATE`: Live location & risk score update.
 
@@ -151,11 +155,47 @@ The web dashboard tracks active trips and emergency incidents through pseudonymo
 | `POST` | `/api/responders/match` | Find operationally recommended responders for a location. |
 | `POST` | `/api/search-probability` | Calculate estimated search sectors from last-known telemetry. |
 
+### Android Ingestion Endpoints (Implemented)
+
+The Android BlackBox syncs the active trip and its breadcrumbs to these idempotent endpoints; both broadcast to dashboard WebSocket clients.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/trips` | Idempotent trip upsert from the Android BlackBox (keyed by `tripId`). Broadcasts `TRIP_STARTED`. |
+| `POST` | `/api/breadcrumbs` | Idempotent breadcrumb append (keyed by `breadcrumbId`). Broadcasts `BREADCRUMB_RECORDED`. |
+
+`POST /api/trips` body:
+
+```json
+{
+  "tripId": "uuid-v4",
+  "touristId": "TST-8F29X4",
+  "plannedRouteId": "cherrapunji",
+  "status": "ACTIVE",
+  "startedAt": 1750000000000
+}
+```
+
+`POST /api/breadcrumbs` body:
+
+```json
+{
+  "breadcrumbId": "uuid-v4",
+  "tripId": "uuid-v4",
+  "touristId": "TST-8F29X4",
+  "lat": 25.181,
+  "lon": 91.297,
+  "accuracyMeters": 5,
+  "batteryPercent": 92,
+  "activityMode": "WALKING",
+  "timestamp": "2026-08-14T04:30:00.000Z"
+}
+```
+
 ### Planned Tracking Endpoints
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `POST` | `/api/trips/:tripId/breadcrumbs` | Persist a new Android breadcrumb and broadcast it to dashboard clients. |
 | `GET` | `/api/trips/:tripId/latest` | Return the latest known location and telemetry for one active trip. |
 
 ### Dashboard Subject Shape

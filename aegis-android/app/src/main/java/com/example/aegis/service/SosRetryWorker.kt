@@ -11,15 +11,19 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.aegis.AegisApplication
 import com.example.aegis.data.local.entity.OutboxEntity
+import com.example.aegis.data.remote.dto.SosRequestDto
+import com.example.aegis.domain.model.RescuePacket
 import java.util.concurrent.TimeUnit
+import kotlinx.serialization.json.Json
 
 /**
- * WorkManager worker that retries all PENDING/FAILED outbox SOS packets
- * when network connectivity is restored.
+ * WorkManager worker that retries all PENDING/SENDING/FAILED outbox SOS packets
+ * when network connectivity is restored. Re-dispatches each stored packet
+ * through the real OkHttp [AegisApi]; on a server ack the outbox row is marked
+ * SENT, otherwise it stays retryable.
  *
- * This guarantees that offline SOS alerts are eventually delivered once
- * the device regains connectivity, as required by Prompt 5:
- * "OFFLINE: Outbox remains PENDING → WorkManager retries when appropriate"
+ * This guarantees that offline SOS alerts are eventually delivered once the
+ * device regains connectivity (offline-first architecture).
  */
 class SosRetryWorker(
   appContext: Context,
@@ -54,30 +58,42 @@ class SosRetryWorker(
   override suspend fun doWork(): Result {
     val container = (applicationContext as AegisApplication).container
     val outboxDao = container.database.outboxDao()
+    val api = container.aegisApi
 
-    // Fetch all pending outbox entries
     val pendingPackets = outboxDao.getPendingPackets()
-    if (pendingPackets.isEmpty()) return Result.success()
-
-    // Also fetch FAILED packets that may have errored on previous attempts
     val failedPackets = outboxDao.getFailedPackets()
-    val allRetryable = pendingPackets + failedPackets
+    val allRetryable = (pendingPackets + failedPackets).distinctBy { it.packetId }
+    if (allRetryable.isEmpty()) return Result.success()
 
     var allSucceeded = true
 
     for (entry in allRetryable) {
       try {
-        // Re-dispatch through the emergency repository which handles
-        // the full HTTPS delivery + outbox state management
-        val emergencyRepo = container.emergencyRepository
-        // Since the packet is already in outbox, we just need to re-attempt
-        // the HTTPS delivery. We parse the stored payload and attempt send.
         outboxDao.markRetrying(entry.packetId)
 
-        // For now, mark as retry-attempted. The full HTTPS client implementation
-        // (OkHttp-backed AegisApi) will handle the actual network call when it lands.
-        // This worker ensures the retry is scheduled when connectivity is available.
-        allSucceeded = false // Will succeed once OkHttp AegisApi is implemented
+        val packet = parseRescuePacket(entry)
+        val dto = SosRequestDto(
+          packetId = packet.packetId,
+          touristId = packet.touristId,
+          lat = packet.latitude,
+          lon = packet.longitude,
+          batteryPct = packet.batteryPercent,
+          channel = "HTTPS",
+          rawSmsPayload = null,
+        )
+
+        val response = api.submitSos(dto)
+        if (response.success && response.incidentId != null) {
+          outboxDao.markSent(
+            packetId = entry.packetId,
+            status = "SENT",
+            serverAckId = response.incidentId,
+            transportUsed = "HTTPS",
+          )
+        } else {
+          outboxDao.markFailed(entry.packetId, response.message ?: "No server ack")
+          allSucceeded = false
+        }
       } catch (e: Exception) {
         outboxDao.markFailed(entry.packetId, e.message ?: "Retry failed")
         allSucceeded = false
@@ -86,4 +102,10 @@ class SosRetryWorker(
 
     return if (allSucceeded) Result.success() else Result.retry()
   }
+
+  private fun parseRescuePacket(entry: OutboxEntity): RescuePacket =
+    Json { ignoreUnknownKeys = true }.decodeFromString(
+      RescuePacket.serializer(),
+      entry.payloadJson,
+    )
 }

@@ -72,8 +72,10 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
      * `tourists` (**Zero raw PII stored**, pseudonymous voucher hashes `keccak256(TouristID + Salt)`), `trips`, `breadcrumbs` (`GEOMETRY(Point, 4326)`), `incidents` (unique `packet_id` constraint for idempotency), `incident_events` (audit log), `check_ins`, `hazard_reports` (confidence score & verification status), `safety_zones` (`GEOMETRY(Polygon, 4326)`), `responder_units`, `responder_capabilities`, `relay_packet_receipts`, `hazard_events`.
    - **Idempotent Ingestion**: Duplicate `packet_id` submissions to `/api/sos` return existing incident acknowledgements without creating duplicate incidents or audit records.
    - **Security & Authorization**: `express-rate-limit` rate limiting middleware, JWT authentication for authority command center endpoints, request validation, structured error handling middleware.
-   - **Development Seed Fixtures**: Clearly labeled development seed fixtures (`dev_fixtures.js`) for local testing without misrepresenting production statistics.
-   - **Backend Integration Tests**: 27 automated unit & integration tests (`npm test`) passing 100%.
+   - **Reference-Only Dev Fixtures**: `dev_fixtures.js` seeds **only static reference data** (safety geofences, responder-unit registry, route segments). Telemetry stores (tourists, trips, breadcrumbs, incidents, hazards) start **empty** and are filled exclusively by the Android ingestion APIs — the authority dashboard can never show a fabricated incident or a fake live tourist.
+   - **Trip & Breadcrumb Ingestion**: `POST /api/trips` (idempotent trip upsert) and `POST /api/breadcrumbs` (idempotent per `breadcrumbId`) accept Android BlackBox syncs, validate coordinates, and broadcast `TRIP_STARTED` / `BREADCRUMB_RECORDED` over WebSocket.
+   - **Enriched SOS broadcast**: the `EMERGENCY_SOS` WebSocket payload carries the full incident record (`id`, `lat`, `lon`, `touristId`, `batteryPct`, `channel`, `status`) so the authority dashboard can pin it on the map immediately.
+   - **Backend Integration Tests**: 34 automated unit & integration tests (`npm test`) passing 100%.
 
 7. **AEGIS Offline Peer Relay (Google Nearby Connections)**:
    - **`NearbyTransport`**: Google Nearby Connections driver implementing advertising (`Strategy.P2P_CLUSTER`), discovery, authenticated connection handshakes (`onConnectionInitiated` token authentication), and byte payload exchange (`Payload.fromBytes()`).
@@ -85,7 +87,8 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
 8. **AEGIS Outbox Pattern & Backend Connection**:
    - **`RescuePacket`**: Transport-independent packet model containing `packetId` (UUID), `version`, `eventType`, `priority`, `touristId`, `tripId`, `timestamp`, `latitude`, `longitude`, `locationAccuracy`, `batteryPercent`, `activityMode`, `incidentConfidence`, `latestBreadcrumbId`, `createdAt`, `hopCount`, `ttl`, `signature`, and `transportUsed`.
    - **`OutboxEntity` & `OutboxDao`**: Room-backed outbox queue storing all outgoing events as `PENDING` **FIRST** before delivery attempts.
-   - **`RealEmergencyRepository`**: Dispatches SOS alerts to backend `/api/sos`. Saves `serverAckId` and `transportUsed = "HTTPS"` on server acknowledgement. Retains packet as `PENDING` for retry when offline.
+   - **`RealEmergencyRepository`**: Dispatches SOS alerts to backend `/api/sos` through the real `OkHttpAegisApi`. Saves `serverAckId` and `transportUsed = "HTTPS"` on server acknowledgement. Retains packet as `PENDING` for retry when offline.
+   - **`OkHttpAegisApi` (real HTTP client)**: `data/remote/OkHttpAegisApi.kt` implements `health`, `submitSos`, `incidents`, `identity`, `startTrip`, and `submitBreadcrumb` against `BuildConfig.AEGIS_BACKEND_BASE_URL` (default `http://10.0.2.2:5000`). `SosRetryWorker` re-dispatches failed outbox packets over HTTPS.
    - **Backend Idempotency (`/api/sos`)**: `aegis-backend` checks `packetId` and returns existing incident ack without duplicating alerts on retries.
    - **`SmsFallbackAdapter`**: User-confirmed Android SMS handoff Intent adapter (`smsto:`) formatting compact SOS payloads (`SOS:TST123|25.141|91.261|85%`).
    - **Honest UI Delivery States**: Displays real states (`Sending…`, `Delivered via Internet (Ack: INC-12345)`, `Waiting for connectivity`, `SMS handoff ready`, `Failed — retrying`). Never displays fake checkmarks.
@@ -108,15 +111,43 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
    - **Persistent Storage**: Room SQLite database storing `TripEntity`, `BreadcrumbEntity`, and `SensorEventChunkEntity`.
    - **Repository Pattern**: `RoomBlackBoxRepository` fully decoupled from UI layer via `BlackBoxRepository` interface.
    - **Keystore Encryption**: Android Keystore AES-256 GCM (`BlackBoxEncryptor`) encrypts sensitive locally stored sensor payloads.
-   - **Foreground Service**: `TripTrackingService` displays persistent notification and records real location fixes via `FusedLocationProviderClient`, battery status via `BatteryManager`, and motion metrics via `SensorManager`.
-   - **Process Recovery**: Restarts automatically (`START_STICKY`) upon process kill, guaranteeing active trips continue recording without losing unsynced breadcrumbs.
+   - **Foreground Service**: `TripTrackingService` displays persistent notification and records real location fixes via **FusedLocationProvider (Play Services) with a platform `LocationManager` fallback** (GPS/network `requestSingleUpdate`) for devices without Play Services — breadcrumbs are labeled with the honest `locationSource` (`FUSED` / `GPS` / `NETWORK`). Battery via `BatteryManager`, motion via `SensorManager`.
+   - **Process Recovery**: Restarts automatically (`START_STICKY`) upon process kill, guaranteeing active trips continue recording without losing unsynced breadcrumbs. Stopping a trip also resolves the active trip even if the service was freshly restarted (fixes trips stuck `ACTIVE`).
+   - **Gateway Sync**: `BreadcrumbSyncWorker` pushes the active trip + pending breadcrumbs to the gateway (`POST /api/trips` + `POST /api/breadcrumbs`) — immediately on trip start (`syncNow`) and then periodically (2-min cadence, clamped by WorkManager) — then marks them `SYNCED` only after backend acknowledgement.
    - **UI Integration**: `HomeViewModel` exposes real active trip state, `locationText`, and `routeDeviationText`. Shows formatted coordinates or `"Location unavailable"` when no fix exists (**Zero Fake Coordinates**).
 
 ---
 
-## 🧪 Verification & Test Coverage (85 / 85 Passed)
+## 📱 Android App UI Wiring (aegis-android) — Post Restructure
 
-- Smart Contract Hardhat tests (`npx hardhat test` in `aegis-contracts`): 7 passed cleanly.
-- Backend Integration, Search Probability & Rescueability tests (`npm test` in `aegis-backend`): 27 passed cleanly.
-- Android Unit tests (`./gradlew test` in `aegis-android`): 51 passed cleanly.
-- Dashboard Build (`npm run build` in `aegis-dashboard`): Compiled successfully.
+### 🟢 Wired to Real Systems
+
+- **Home guardian status**: `HomeViewModel.guardianState` is derived from **real state** — active trip (Room `TripEntity`), latest location fix (Room `BreadcrumbEntity`), route deviation (`RouteDeviationEngine`), and the SOS overlay visibility mirrored from `EmergencyViewModel` via `AppContainer.emergencyOverlayActive`. No hard-coded levels: SOS open → `EMERGENCY`; no trip → `LIMITED`; trip + deviation → `ATTENTION`; trip + no fix → `LIMITED`; trip + fix on-route → `ACTIVE`. Home renders it with the shared `GuardianStatePill` (same as Map / Activity / SafetyCenter).
+- **Trip start is real**: `TripSetup`'s "Start Safe Journey" (centered button) starts the foreground `TripTrackingService` with the container identity, plus `NearbyTransport` advertising/discovery for the offline peer relay.
+- **Runtime permissions**: starting a journey requests location **and** `POST_NOTIFICATIONS` (Android 13+) via `LocationPermissions.requiredForTrip`, so the foreground tracking notification is visible on API 33+.
+- **SOS dispatch pipeline**: `EmergencyViewModel` builds the payload from the real Tourist ID + latest Room breadcrumb + battery, calls `DispatchSosUseCase` → `RealEmergencyRepository` which persists the packet in the Room **outbox as `PENDING` first**, then attempts the backend **over real HTTPS (`OkHttpAegisApi`)**. `SosOverlay` shows the honest 7-step progress (`ui/state/SosSteps.kt`): checkmarks appear only when the real state reports success (backend ack `Sent`), and offline storage surfaces as `PendingSmsFallback` with SMS/relay steps stuck `IN_PROGRESS` — never fake checkmarks. Dispatch requires a press-and-hold to reduce accidental activation.
+- **Map (real OSM)**: `MapViewModel` drives `MapScreen` from **real data** — the guardian pill, destination, route summary, corridor status and live position all come from the active trip + real Room breadcrumbs. The map itself is a **real OpenStreetMap basemap (osmdroid, Mapnik tiles — the same tiles the web dashboard uses via Leaflet)** with real zone markers at zone centroids, the recorded breadcrumb trail polyline, and a live position marker. Production never renders the sample "3.6 km recorded" strings.
+- **Journey BlackBox & Activity (real)**: `JourneyBlackBoxViewModel` / `ActivityViewModel` derive recording state, last-fix time, accuracy, activity, battery, stored/synced/pending breadcrumb counts and the timeline from **real Room data** (BlackBox + check-ins). No fabricated "148 breadcrumbs" or fake timeline events.
+- **Zone detail**: Map zone chips open real `ZoneDetail` (Cherrapunji / Roots / **Dawki River** fallback / Nohkalikai are all resolvable via `RoomSafetyZoneRepository`), with real local check-ins stored in Room and honest SOS state.
+- **Tourist ID page**: QR voucher is centered with a fixed square bitmap; the on-chain chip honestly shows `PENDING ON-CHAIN SYNC` (with an explanatory note that publication activates when the bridge is connected) until real `confirmed == true`.
+
+### 🔵 Preview / Mock Layers (isolated to `ui/state` + demo repositories)
+
+- **`AegisSampleState` defaults**: kept only as the composable default parameter used by `@Preview` and any screen that has not yet been wired to a ViewModel (SafetyCenter capability rows, TripSetup config rows, IncidentCheck preview). Production screens (Home, Map, Activity, JourneyBlackBox) always receive real state from their ViewModels.
+- **`DemoIdentityRepository`**: still supplies the Tourist ID until the identity service is attached; the ID is used only as a local pseudonymous voucher (no on-chain claims).
+- **`IncidentCheckScreen`**: an explicit **preview** of the future sensor-fusion incident check flow — intentionally not connected to live sensor state yet.
+
+### ⚠️ Known Android Unit-Test Environment Issue
+
+- `./gradlew testDebugUnitTest` fails with `ClassNotFoundException` for the test classes under **AGP 9.0.1's built-in Kotlin test worker**. This is a local toolchain/environment issue, not a code failure — **do not rabbit-hole on it**. `assembleDebug` and `assembleDebugAndroidTest` are the compile gates and must stay green.
+
+---
+
+## 🧪 Verification & Test Coverage
+
+- Smart Contract Hardhat tests (`npx hardhat test` in `aegis-contracts`): **7 passed**.
+- Backend Integration, Search Probability, Rescueability & trip/breadcrumb ingestion tests (`npm test` in `aegis-backend`): **34 passed**.
+- Dashboard reducer tests (`npm test` in `aegis-dashboard`): **7 passed**; `npm run build` compiles cleanly.
+- Android compile gates (`assembleDebug` + `assembleDebugAndroidTest`): **green**.
+- Instrumented UI test on emulator (`connectedDebugAndroidTest` — HomeScreenTest): **1 passed, 0 failures**.
+- Android unit tests (`testDebugUnitTest`): blocked by the documented AGP 9.0.1 test-worker environment issue (see below); the same tests pass when run directly against the worker classpath.

@@ -52,6 +52,7 @@ play-services-location = { module = "com.google.android.gms:play-services-locati
 play-services-nearby = { module = "com.google.android.gms:play-services-nearby", version.ref = "playServicesNearby" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+osmdroid = { module = "org.osmdroid:osmdroid-android", version = "6.1.20" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 
 [plugins]

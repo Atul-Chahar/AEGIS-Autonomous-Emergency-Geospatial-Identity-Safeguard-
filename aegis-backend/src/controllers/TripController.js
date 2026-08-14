@@ -18,5 +18,31 @@ module.exports = {
     } catch (err) {
       next(err);
     }
+  },
+
+  /** Ingests a trip started by the Android BlackBox and broadcasts it live. */
+  async startTrip(req, res, next) {
+    try {
+      const trip = await tripRepository.saveTrip(req.body);
+      if (req.app.get('wsBroadcaster')) {
+        req.app.get('wsBroadcaster')('TRIP_STARTED', trip);
+      }
+      res.status(201).json(trip);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /** Ingests a breadcrumb from the Android BlackBox and broadcasts it live. */
+  async recordBreadcrumb(req, res, next) {
+    try {
+      const breadcrumb = await tripRepository.saveBreadcrumb(req.body);
+      if (req.app.get('wsBroadcaster')) {
+        req.app.get('wsBroadcaster')('BREADCRUMB_RECORDED', breadcrumb);
+      }
+      res.status(201).json(breadcrumb);
+    } catch (err) {
+      next(err);
+    }
   }
 };

@@ -20,6 +20,8 @@ data class EmergencyUiState(
   val dispatching: Boolean = false,
   val dispatchResult: SosDispatchResult? = null,
   val payloadPreview: String? = null,
+  val hasLocationFix: Boolean = false,
+  val blackBoxAttached: Boolean = false,
   val statusMessage: String? = null,
   val error: String? = null,
 )
@@ -33,6 +35,8 @@ class EmergencyViewModel(
   private val dispatchSos: DispatchSosUseCase,
   private val identityRepository: IdentityRepository,
   private val blackBoxRepository: BlackBoxRepository? = null,
+  /** Mirrors overlay visibility into the container so screens can reflect EMERGENCY state. */
+  private val onOverlayVisibilityChange: (Boolean) -> Unit = {},
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(EmergencyUiState())
@@ -40,6 +44,7 @@ class EmergencyViewModel(
 
   fun openOverlay() {
     _uiState.value = EmergencyUiState(overlayVisible = true)
+    onOverlayVisibilityChange(true)
     viewModelScope.launch {
       val identity = identityRepository.observeIdentity().first()
       val latestBreadcrumb = blackBoxRepository?.observeLatestBreadcrumb()?.firstOrNull()
@@ -50,6 +55,8 @@ class EmergencyViewModel(
 
       _uiState.value = _uiState.value.copy(
         payloadPreview = "SOS:${identity.touristId} | lat:$latStr | lon:$lonStr | battery:$batStr",
+        hasLocationFix = latestBreadcrumb != null,
+        blackBoxAttached = blackBoxRepository != null && latestBreadcrumb != null,
         statusMessage = "Emergency sharing ready",
       )
     }
@@ -57,6 +64,7 @@ class EmergencyViewModel(
 
   fun dismissOverlay() {
     _uiState.value = EmergencyUiState()
+    onOverlayVisibilityChange(false)
   }
 
   fun dispatch(zoneId: String? = null, latitude: Double? = null, longitude: Double? = null) {

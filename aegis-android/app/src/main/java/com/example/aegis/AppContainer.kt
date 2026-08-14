@@ -2,6 +2,7 @@ package com.example.aegis
 
 import android.content.Context
 import com.example.aegis.data.local.AegisDatabase
+import com.example.aegis.data.remote.OkHttpAegisApi
 import com.example.aegis.data.repository.CheckInRepository
 import com.example.aegis.data.repository.EmergencyRepository
 import com.example.aegis.data.repository.IdentityRepository
@@ -15,7 +16,9 @@ import com.example.aegis.location.LocationProvider
 import com.example.aegis.sensors.ActivityRecognitionProvider
 import com.example.aegis.sensors.AndroidActivityRecognitionProvider
 import com.example.aegis.data.repository.BlackBoxRepository
+import com.example.aegis.service.BreadcrumbSyncScheduler
 import com.example.aegis.service.CheckInScheduler
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Manual dependency container. Swap demo repositories for Room/remote-backed
@@ -27,6 +30,9 @@ class AppContainer(context: Context) {
 
   val database: AegisDatabase by lazy { AegisDatabase.getInstance(appContext) }
 
+  // Real OkHttp transport to the AEGIS backend gateway (BuildConfig base URL).
+  val aegisApi: OkHttpAegisApi by lazy { OkHttpAegisApi() }
+
   // Real, Room & Offline Geofence-backed safety zone repository
   val safetyZoneRepository: SafetyZoneRepository by lazy {
     com.example.aegis.data.repository.RoomSafetyZoneRepository(database.zoneDao())
@@ -34,7 +40,9 @@ class AppContainer(context: Context) {
   val emergencyRepository: EmergencyRepository by lazy {
     com.example.aegis.data.repository.RealEmergencyRepository(
       outboxDao = database.outboxDao(),
+      api = aegisApi,
       blackBoxRepository = blackBoxRepository,
+      appContext = appContext,
     )
   }
   val identityRepository: IdentityRepository = DemoIdentityRepository()
@@ -56,6 +64,10 @@ class AppContainer(context: Context) {
   val relayOutbox by lazy { com.example.aegis.mesh.RelayOutbox(database.relayInboxDao()) }
   val nearbyTransport by lazy { com.example.aegis.mesh.NearbyTransport(appContext, relayInbox) }
 
+  // True while the global SOS overlay is open. Owned by EmergencyViewModel;
+  // mirrored here so screens (e.g. Home) can reflect EMERGENCY guardian state.
+  val emergencyOverlayActive = MutableStateFlow(false)
+
   // Real sensors (permission-gated at feature start).
   val locationProvider: LocationProvider = AndroidLocationProvider(appContext)
   val activityRecognitionProvider: ActivityRecognitionProvider =
@@ -72,5 +84,6 @@ class AppContainer(context: Context) {
 
   fun scheduleBackgroundWork() {
     CheckInScheduler.schedule(appContext)
+    BreadcrumbSyncScheduler.schedule(appContext)
   }
 }

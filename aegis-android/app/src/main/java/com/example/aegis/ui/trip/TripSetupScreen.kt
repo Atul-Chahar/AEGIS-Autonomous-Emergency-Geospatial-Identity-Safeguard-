@@ -81,12 +81,20 @@ fun TripSetupScreen(
       }
 
       Surface(onClick = onStartJourney, shape = RoundedCornerShape(50), color = ForestDark) {
-        Text(
-          text = "START SAFE JOURNEY",
-          style = MaterialTheme.typography.labelLarge,
-          color = Color.White,
+        Row(
           modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        )
+          horizontalArrangement = Arrangement.Center,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            text = "START SAFE JOURNEY",
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(text = "🛰", style = MaterialTheme.typography.labelLarge)
+        }
       }
     }
   }

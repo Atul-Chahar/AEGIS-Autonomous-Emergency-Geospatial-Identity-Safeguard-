@@ -97,6 +97,7 @@ export function dashboardReducer(state, action) {
     case 'INCIDENT_STATUS_CHANGED':
       return upsertIncident(state, action.payload, action.receivedAt);
     case 'TRIP_UPDATED':
+    case 'TRIP_STARTED':
       return upsertTrip(state, action.payload, action.receivedAt);
     case 'BREADCRUMB_RECORDED':
       return appendBreadcrumb(state, action.payload, action.receivedAt);

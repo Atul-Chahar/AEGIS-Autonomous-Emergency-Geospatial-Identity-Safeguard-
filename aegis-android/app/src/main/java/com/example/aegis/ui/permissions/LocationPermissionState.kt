@@ -18,9 +18,10 @@ class LocationPermissionState(
 )
 
 /**
- * Location runtime-permission helper. Call [LocationPermissionState.request]
+ * Location + notification runtime-permission helper. Call [LocationPermissionState.request]
  * only when the user starts a location-dependent feature (e.g. Start Route) —
- * never at app launch.
+ * never at app launch. On Android 13+ it also requests POST_NOTIFICATIONS so
+ * the foreground tracking notification is visible.
  */
 @Composable
 fun rememberLocationPermissionState(): LocationPermissionState {
@@ -32,5 +33,5 @@ fun rememberLocationPermissionState(): LocationPermissionState {
       isGranted = it.values.all { granted -> granted }
     }
 
-  return LocationPermissionState(isGranted = isGranted, request = { launcher.launch(LocationPermissions.required) })
+  return LocationPermissionState(isGranted = isGranted, request = { launcher.launch(LocationPermissions.requiredForTrip) })
 }

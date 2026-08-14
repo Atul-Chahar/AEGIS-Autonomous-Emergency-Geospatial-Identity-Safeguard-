@@ -10,6 +10,7 @@ sealed interface LocationResult {
     val speedMps: Float? = null,
     val bearingDegrees: Float? = null,
     val altitudeMeters: Double? = null,
+    val source: String = "FUSED",
   ) : LocationResult
 
   data class Unavailable(val reason: String) : LocationResult

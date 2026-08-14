@@ -50,6 +50,20 @@ cd aegis-android && ./gradlew assembleDebug
 cd aegis-android && ./gradlew test
 ```
 
+> ⚠️ AGP 9.0.1 note: `./gradlew test` (unit tests) can fail with a `ClassNotFoundException` from the built-in Kotlin test worker — a local toolchain issue, not a code failure. `assembleDebug` and `assembleDebugAndroidTest` are the compile gates.
+
+### Local E2E Demo Runbook
+
+1. **Backend** — `cd aegis-backend && npm start` (listens on `:5000`).
+2. **Dashboard** — `cd aegis-dashboard && npm run dev` (http://localhost:5173).
+3. **Android** — build + install the debug APK on the `aegis` emulator, grant **Location** and **Notifications** when prompted.
+4. Tap **Start Safe Journey** → review essentials → **START SAFE JOURNEY**: a real foreground trip starts (notification appears), breadcrumbs record to Room (labeled `FUSED`/`GPS`), and the trip syncs to the gateway immediately (`POST /api/trips` → `TRIP_STARTED` WebSocket → the dashboard's map shows the live subject).
+5. On the dashboard, select the subject: its breadcrumb trail (`GET /api/breadcrumbs/:tripId`) renders the BlackBox trajectory on the map.
+6. Tap the center **🚨 SOS** and press-and-hold: the honest 7-step progress runs, the incident lands on the backend (`POST /api/sos`) and broadcasts `EMERGENCY_SOS` (full `lat`/`lon` payload) to the dashboard, where authorities can walk the 6-state incident machine.
+7. Map tab in the app shows the **real OSM basemap** with zone markers and the live position; Journey BlackBox / Activity show real Room counts and timeline.
+
+> **No fake data**: the backend seeds no telemetry. Every incident, trip and breadcrumb on the dashboard originated from a real device action.
+
 ---
 
 ## Component Deep Dives

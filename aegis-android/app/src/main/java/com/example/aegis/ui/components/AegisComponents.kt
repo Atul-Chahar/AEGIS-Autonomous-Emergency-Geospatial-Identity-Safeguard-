@@ -9,6 +9,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -19,26 +22,32 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +61,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -82,6 +92,11 @@ import com.example.aegis.theme.SageSoft
 import com.example.aegis.theme.SunYellow
 import com.example.aegis.ui.state.GuardianLevel
 import com.example.aegis.ui.state.GuardianSystemState
+import com.example.aegis.ui.state.SosProgressStep
+import com.example.aegis.ui.state.SosStepStatus
+import com.example.aegis.ui.state.buildSosSteps
+import com.example.aegis.ui.state.offlineMessageFor
+import kotlinx.coroutines.delay
 
 // ─────────────────────────────────────────────────────────────
 // AegisBackground — full-screen sage gradient with soft "liquid"
@@ -631,19 +646,24 @@ private fun NavSlot(
 }
 
 // ─────────────────────────────────────────────────────────────
-// SosOverlay — full-screen emergency dispatch with a pulse animation.
-// Shows exactly what the dispatch pipeline returns: the transport is not
-// connected yet, so the result is an honest NotAvailable — never a fake
-// "help en route".
+// SosOverlay — full-screen emergency sheet with press-and-hold
+// confirmation and honest transport progress (spec §7). A step only
+// shows a checkmark when the real dispatch state says it succeeded.
 // ─────────────────────────────────────────────────────────────
 @Composable
 fun SosOverlay(
   payloadPreview: String?,
+  dispatching: Boolean,
   dispatchResult: SosDispatchResult?,
+  hasLocationFix: Boolean,
+  blackBoxAttached: Boolean,
   onDispatch: () -> Unit,
   onDismiss: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val steps = buildSosSteps(dispatching, dispatchResult, hasLocationFix, blackBoxAttached)
+  val offlineMessage = offlineMessageFor(dispatchResult)
+
   Dialog(
     onDismissRequest = onDismiss,
     properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -653,22 +673,25 @@ fun SosOverlay(
       contentAlignment = Alignment.Center,
     ) {
       GlassCard(
-        modifier = Modifier.padding(horizontal = 28.dp).fillMaxWidth(),
+        modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth(),
         shape = RoundedCornerShape(32.dp),
         color = Color(0xFAFFFDF8),
-        contentPadding = PaddingValues(24.dp),
+        contentPadding = PaddingValues(22.dp),
       ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(
+          modifier = Modifier.verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
           Box(
-            modifier = Modifier.fillMaxWidth().height(96.dp),
+            modifier = Modifier.fillMaxWidth().height(88.dp),
             contentAlignment = Alignment.Center,
           ) {
             PulsingRing()
             Box(
-              modifier = Modifier.size(64.dp).clip(CircleShape).background(DangerRed),
+              modifier = Modifier.size(60.dp).clip(CircleShape).background(DangerRed),
               contentAlignment = Alignment.Center,
             ) {
-              Text(text = "🚨", fontSize = 28.sp)
+              Text(text = "🚨", fontSize = 26.sp)
             }
           }
 
@@ -680,138 +703,52 @@ fun SosOverlay(
           )
           Text(
             text =
-              "Your tourist ID and status are prepared locally. Dispatch transmits the moment an " +
-                "emergency transport is connected.",
+              "Your ID, location and Journey Protection record are prepared locally. " +
+                "Hold to confirm and send through every available channel.",
             style = MaterialTheme.typography.bodyMedium,
             color = InkSoft,
           )
 
-          Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = ForestDark.copy(alpha = 0.08f),
-            border = BorderStroke(1.dp, ForestDark.copy(alpha = 0.12f)),
-          ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+          // Honest transport progress — checkmarks only on real success.
+          steps.forEach { step ->
+            SosProgressRow(step = step)
+          }
+
+          offlineMessage?.let { message ->
+            Surface(
+              shape = RoundedCornerShape(14.dp),
+              color = CautionAmber.copy(alpha = 0.14f),
+              border = BorderStroke(1.dp, CautionAmber.copy(alpha = 0.5f)),
+            ) {
               Text(
-                text = payloadPreview ?: "Preparing payload…",
+                text = message,
                 style = MaterialTheme.typography.labelMedium,
-                color = InkSoft,
-              )
-              Spacer(modifier = Modifier.height(4.dp))
-              Text(
-                text = "Emergency sharing uses available connections only. No delivery is shown until confirmed.",
-                style = MaterialTheme.typography.labelSmall,
-                color = InkSoft.copy(alpha = 0.8f),
+                color = CautionAmber,
+                modifier = Modifier.padding(12.dp),
               )
             }
           }
 
-          when (dispatchResult) {
-            is SosDispatchResult.Sent ->
-              Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = SafeGreen.copy(alpha = 0.14f),
-                border = BorderStroke(1.dp, SafeGreen.copy(alpha = 0.5f)),
-              ) {
-                Row(
-                  modifier = Modifier.fillMaxWidth().padding(12.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-                ) {
-                  Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = SafeGreen,
-                    modifier = Modifier.size(20.dp),
-                  )
-                  Spacer(modifier = Modifier.width(10.dp))
-                  Text(
-                    text = "Delivered via ${dispatchResult.transport} (Ack: ${dispatchResult.ackId})",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = SafeGreen,
-                  )
-                }
-              }
-            is SosDispatchResult.PendingSmsFallback ->
-              Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = CautionAmber.copy(alpha = 0.14f),
-                border = BorderStroke(1.dp, CautionAmber.copy(alpha = 0.5f)),
-              ) {
-                Text(
-                  text = "No internet. Your emergency has been safely stored. ${dispatchResult.reason}",
-                  style = MaterialTheme.typography.labelMedium,
-                  color = CautionAmber,
-                  modifier = Modifier.padding(12.dp),
-                )
-              }
-            is SosDispatchResult.Failed ->
-              Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = DangerRed.copy(alpha = 0.14f),
-                border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f)),
-              ) {
-                Text(
-                  text = "❌ Failed: ${dispatchResult.reason}",
-                  style = MaterialTheme.typography.labelMedium,
-                  color = DangerRed,
-                  modifier = Modifier.padding(12.dp),
-                )
-              }
-            is SosDispatchResult.NotAvailable ->
-              Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = CautionAmber.copy(alpha = 0.12f),
-                border = BorderStroke(1.dp, CautionAmber.copy(alpha = 0.5f)),
-              ) {
-                Text(
-                  text = "⚠ ${dispatchResult.reason}",
-                  style = MaterialTheme.typography.labelMedium,
-                  color = CautionAmber,
-                  modifier = Modifier.padding(12.dp),
-                )
-              }
-            SosDispatchResult.Dispatched ->
-              Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = SafeGreen.copy(alpha = 0.14f),
-                border = BorderStroke(1.dp, SafeGreen.copy(alpha = 0.5f)),
-              ) {
-                Row(
-                  modifier = Modifier.fillMaxWidth().padding(12.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-                ) {
-                  Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = SafeGreen,
-                    modifier = Modifier.size(20.dp),
-                  )
-                  Spacer(modifier = Modifier.width(10.dp))
-                  Text(
-                    text = "Emergency recorded and queued",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = SafeGreen,
-                  )
-                }
-              }
-            null -> Unit
-          }
-
-          Button(
-            onClick = onDispatch,
-            shape = RoundedCornerShape(16.dp),
-            colors =
-              ButtonDefaults.buttonColors(
-                containerColor = DangerRed,
-                contentColor = Color.White,
-              ),
-            modifier = Modifier.fillMaxWidth().height(54.dp),
+          // Technical payload detail (kept small and secondary).
+          Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = ForestDark.copy(alpha = 0.06f),
+            border = BorderStroke(1.dp, ForestDark.copy(alpha = 0.1f)),
           ) {
             Text(
-              text = "REQUEST EMERGENCY HELP",
-              style = MaterialTheme.typography.labelLarge,
+              text = payloadPreview ?: "Preparing payload…",
+              style = MaterialTheme.typography.labelSmall,
+              color = InkSoft,
+              modifier = Modifier.padding(10.dp),
             )
           }
+
+          PressAndHoldSosButton(
+            label = if (dispatching) "SENDING…" else "PRESS & HOLD TO SEND",
+            enabled = !dispatching,
+            onComplete = onDispatch,
+            modifier = Modifier.fillMaxWidth().height(58.dp),
+          )
 
           TextButton(
             onClick = onDismiss,
@@ -823,6 +760,144 @@ fun SosOverlay(
               style = MaterialTheme.typography.labelLarge,
             )
           }
+        }
+      }
+    }
+  }
+}
+
+/** One honest step row: spinner for in-progress, check only when succeeded. */
+@Composable
+private fun SosProgressRow(step: SosProgressStep, modifier: Modifier = Modifier) {
+  val (tint, glyph) =
+    when (step.status) {
+      SosStepStatus.SUCCEEDED -> SafeGreen to "✓"
+      SosStepStatus.IN_PROGRESS -> CautionAmber to "◌"
+      SosStepStatus.FAILED -> DangerRed to "✕"
+      SosStepStatus.PENDING -> InkSoft to "○"
+    }
+  Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Box(
+      modifier = Modifier.size(24.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)),
+      contentAlignment = Alignment.Center,
+    ) {
+      if (step.status == SosStepStatus.IN_PROGRESS) {
+        CircularProgressIndicator(
+          modifier = Modifier.size(14.dp),
+          color = tint,
+          strokeWidth = 2.dp,
+        )
+      } else {
+        Text(text = glyph, style = MaterialTheme.typography.labelSmall, color = tint, fontWeight = FontWeight.Bold)
+      }
+    }
+    Spacer(modifier = Modifier.width(10.dp))
+    Text(
+      text = step.label,
+      style = MaterialTheme.typography.labelMedium,
+      color = if (step.status == SosStepStatus.SUCCEEDED) Ink else InkSoft,
+      modifier = Modifier.weight(1f),
+    )
+  }
+}
+
+/** Press-and-hold dispatch button — reduces accidental activation (spec §7). */
+@Composable
+fun PressAndHoldSosButton(
+  label: String,
+  onComplete: () -> Unit,
+  modifier: Modifier = Modifier,
+  enabled: Boolean = true,
+  holdMillis: Int = 1400,
+) {
+  var pressed by remember { mutableStateOf(false) }
+  var progress by remember { mutableFloatStateOf(0f) }
+  var fired by remember { mutableStateOf(false) }
+
+  // Animate hold progress while the finger is down. Keyed only on `pressed`:
+  // `enabled` toggles while a dispatch is in flight, and including it in the
+  // keys would restart this effect mid-hold and re-fire onComplete repeatedly.
+  LaunchedEffect(pressed) {
+    if (!pressed) {
+      progress = 0f
+      fired = false
+      return@LaunchedEffect
+    }
+    val start = System.nanoTime()
+    while (pressed) {
+      if (!enabled) {
+        // Dispatch in flight — abort and reset without re-arming.
+        progress = 0f
+        fired = true
+        return@LaunchedEffect
+      }
+      progress = ((System.nanoTime() - start) / 1_000_000f / holdMillis).coerceIn(0f, 1f)
+      if (progress >= 1f && !fired) {
+        fired = true
+        onComplete()
+        progress = 1f
+        break
+      }
+      delay(16)
+    }
+  }
+
+  Surface(
+    modifier = modifier.pointerInput(enabled) {
+      awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        if (!enabled) return@awaitEachGesture
+        pressed = true
+        waitForUpOrCancellation()
+        pressed = false
+      }
+    },
+    shape = RoundedCornerShape(18.dp),
+    color = if (enabled) DangerRed else DangerRed.copy(alpha = 0.55f),
+  ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+      // Accurate hold-progress fill: sweeps left → right inside the rounded
+      // button (a full ring gets clipped into a broken arc by the wide shape).
+      Box(
+        modifier =
+          Modifier
+            .align(Alignment.CenterStart)
+            .fillMaxHeight()
+            .fillMaxWidth(progress)
+            .background(Color.White.copy(alpha = 0.20f)),
+      )
+      // Leading edge of the fill so the sweep is visible against the red.
+      Box(
+        modifier =
+          Modifier
+            .align(Alignment.CenterStart)
+            .fillMaxHeight()
+            .fillMaxWidth(progress)
+            .padding(0.dp),
+      ) {
+        Box(
+          modifier =
+            Modifier
+              .align(Alignment.CenterStart)
+              .fillMaxHeight()
+              .width(3.dp)
+              .background(Color.White.copy(alpha = 0.9f)),
+        )
+      }
+
+      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+          text = label,
+          style = MaterialTheme.typography.labelLarge,
+          color = Color.White,
+          fontWeight = FontWeight.Bold,
+        )
+        if (enabled) {
+          Text(
+            text = "Hold ${holdMillis / 1000}.${(holdMillis % 1000) / 100}s",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.75f),
+          )
         }
       }
     }

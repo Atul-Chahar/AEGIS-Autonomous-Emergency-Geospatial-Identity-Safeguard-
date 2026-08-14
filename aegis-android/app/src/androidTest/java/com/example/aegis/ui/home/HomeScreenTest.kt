@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.example.aegis.data.repository.demo.DemoBlackBoxRepository
 import com.example.aegis.data.repository.demo.DemoIdentityRepository
 import com.example.aegis.data.repository.demo.DemoSafetyZoneRepository
 import com.example.aegis.domain.usecase.GetTouristIdentityUseCase
@@ -26,6 +27,7 @@ class HomeScreenTest {
             HomeViewModel(
               observeZones = ObserveSafetyZonesUseCase(DemoSafetyZoneRepository()),
               observeIdentity = GetTouristIdentityUseCase(DemoIdentityRepository()),
+              blackBoxRepository = DemoBlackBoxRepository(),
             ),
           onOpenZones = {},
           onOpenActivity = {},

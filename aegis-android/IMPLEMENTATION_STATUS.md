@@ -12,8 +12,9 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
    - **Persistent Storage**: Room SQLite database storing `TripEntity`, `BreadcrumbEntity`, and `SensorEventChunkEntity`.
    - **Repository Pattern**: `RoomBlackBoxRepository` fully decoupled from UI layer via `BlackBoxRepository` interface.
    - **Keystore Encryption**: Android Keystore AES-256 GCM (`BlackBoxEncryptor`) encrypts sensitive locally stored sensor payloads.
-   - **Foreground Service**: `TripTrackingService` displays persistent notification and records real location fixes via `FusedLocationProviderClient`, battery status via `BatteryManager`, and motion metrics via `SensorManager`.
-   - **Process Recovery**: Restarts automatically (`START_STICKY`) upon process kill, guaranteeing active trips continue recording without losing unsynced breadcrumbs.
+   - **Foreground Service**: `TripTrackingService` displays persistent notification and records real location fixes via **FusedLocationProvider (Play Services) with a platform `LocationManager` fallback** (`requestSingleUpdate`) for devices without Play Services; battery via `BatteryManager`, motion via `SensorManager`. Breadcrumbs carry the honest `locationSource` (`FUSED` / `GPS` / `NETWORK`).
+   - **Process Recovery**: Restarts automatically (`START_STICKY`) upon process kill; stopping a trip resolves the active trip even from a fresh service instance.
+   - **Gateway Sync**: `BreadcrumbSyncWorker` pushes the active trip + pending breadcrumbs to the gateway (`POST /api/trips` / `POST /api/breadcrumbs`) immediately on trip start and periodically, then marks them `SYNCED` after acknowledgement.
    - **UI Integration**: `HomeViewModel` exposes real active trip state and `latestBreadcrumb`. Shows formatted coordinates or `"Location unavailable"` when no fix exists (**Zero Fake Coordinates**).
 
 2. **Offline Local Check-In System**:
@@ -32,9 +33,9 @@ AEGIS (Autonomous Emergency & Geospatial Identity Safeguard) is an offline-first
 
 ## 🟡 Partial / In-Progress Implementations
 
-1. **WebSocket Gateway Sync (`data/remote`)**:
-   - `NetworkModule`, `AegisApi`, and `ApiConfig` configured with configurable base URL (`http://10.0.2.2:5000` / `-PaegisBackendBaseUrl`).
-   - Breadcrumb background sync worker prepared for WebSocket sync dispatch.
+1. **WebSocket Gateway Sync (`data/remote`) — real**:
+   - `OkHttpAegisApi` implements `health`, `submitSos`, `incidents`, `identity`, `startTrip`, and `submitBreadcrumb` against `BuildConfig.AEGIS_BACKEND_BASE_URL` (default `http://10.0.2.2:5000`). `NetworkModule` / `ApiConfig` provide the client + JSON codec. SOS, trips and breadcrumbs sync over real HTTPS.
+   - Remaining: on-device WebSocket push (currently pull/sync based).
 
 2. **BLE Mesh Networking**:
    - Mesh packet structure defined; BLE advertising and scanner integration prepared for next stage.

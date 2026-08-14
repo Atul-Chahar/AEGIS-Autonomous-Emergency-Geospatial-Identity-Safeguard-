@@ -1,5 +1,13 @@
 # AEGIS Architecture — Data Flow & Component Interactions
 
+## Data Authenticity Guarantee
+
+**Telemetry is never seeded.** The backend in-memory fallback and PostGIS stores start with **empty** telemetry (tourists, trips, breadcrumbs, incidents, hazard reports). These are populated exclusively by the Android app through the ingestion APIs. Only static reference data is seeded: safety geofences, the responder-unit registry, and responder route segments. This guarantees the authority dashboard can never display a fabricated incident, a fake live tourist, or invented breadcrumbs.
+
+## Android → Gateway Sync
+
+The offline-first BlackBox records trips + breadcrumbs in Room first; `BreadcrumbSyncWorker` then syncs them to the gateway — immediately on trip start (`syncNow`) and periodically afterwards — via idempotent `POST /api/trips` / `POST /api/breadcrumbs`. Breadcrumbs are marked `SYNCED` in Room only after backend acknowledgement, so a network drop delays delivery but never loses data. The gateway broadcasts `TRIP_STARTED` / `BREADCRUMB_RECORDED` over WebSocket for the dashboard's live view.
+
 ## Authority Dashboard User Tracking Plan
 
 The web command center should become the operator-facing live tracking surface for active tourist trips and emergency incidents. Tracking is bounded to active trip monitoring and emergency response, and all UI/API contracts remain privacy-first: raw PII stays off the dashboard and off-chain.

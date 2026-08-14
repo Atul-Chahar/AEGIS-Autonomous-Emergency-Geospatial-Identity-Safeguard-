@@ -51,7 +51,7 @@ fun JourneyBlackBoxScreen(
     ) {
       GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", onClick = onBack)
       Text(text = "Journey BlackBox", style = MaterialTheme.typography.displayMedium, color = Ink)
-      Text(text = "Local journey record prepared for future real storage and sync.", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+      Text(text = "Live record of this journey's breadcrumbs, battery and sync state — stored in the local BlackBox and synced to the gateway when online.", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
 
       GlassCard(shape = RoundedCornerShape(30.dp)) {
         StatRow("Recording state", state.recordingState)

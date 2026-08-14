@@ -121,6 +121,70 @@ test('AEGIS Backend Integration Tests', async (t) => {
     assert.deepEqual(res.data, []);
   });
 
+  await t.test('POST /api/trips creates an active trip from the Android BlackBox', async () => {
+    const tripId = `TRIP-INTEG-${Date.now()}`;
+    const res = await makeRequest('/api/trips', 'POST', {
+      tripId,
+      touristId: 'TST-INTEG-001',
+      plannedRouteId: 'cherrapunji',
+      status: 'ACTIVE'
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.data.tripId, tripId);
+    assert.equal(res.data.touristId, 'TST-INTEG-001');
+    assert.equal(res.data.plannedRouteId, 'cherrapunji');
+
+    const listRes = await makeRequest('/api/trips');
+    assert.equal(listRes.status, 200);
+    assert.equal(listRes.data.length, 1);
+    assert.equal(listRes.data[0].id, tripId);
+  });
+
+  await t.test('POST /api/breadcrumbs appends a trail point and is idempotent', async () => {
+    const tripId = `TRIP-INTEG-BC-${Date.now()}`;
+    await makeRequest('/api/trips', 'POST', { tripId, touristId: 'TST-INTEG-001', status: 'ACTIVE' });
+
+    const breadcrumbId = `BC-INTEG-${Date.now()}`;
+    const bc = {
+      breadcrumbId,
+      tripId,
+      touristId: 'TST-INTEG-001',
+      lat: 25.1501,
+      lon: 91.2651,
+      accuracyMeters: 12,
+      batteryPercent: 91,
+      activityMode: 'WALKING',
+      timestamp: new Date().toISOString()
+    };
+
+    const res1 = await makeRequest('/api/breadcrumbs', 'POST', bc);
+    assert.equal(res1.status, 201);
+    assert.equal(res1.data.tripId, tripId);
+    assert.equal(parseFloat(res1.data.lat), 25.1501);
+
+    // Idempotent: same breadcrumbId is not duplicated
+    await makeRequest('/api/breadcrumbs', 'POST', bc);
+    const trail = await makeRequest(`/api/breadcrumbs/${tripId}`);
+    assert.equal(trail.status, 200);
+    assert.equal(trail.data.length, 1);
+    assert.equal(trail.data[0].breadcrumbId, breadcrumbId);
+    assert.equal(trail.data[0].accuracyMeters, 12);
+  });
+
+  await t.test('POST /api/breadcrumbs rejects invalid coordinates', async () => {
+    const res = await makeRequest('/api/breadcrumbs', 'POST', {
+      tripId: 'TRIP-X',
+      lat: 99,
+      lon: 91.0
+    });
+    assert.equal(res.status, 400);
+  });
+
+  await t.test('POST /api/trips rejects missing touristId', async () => {
+    const res = await makeRequest('/api/trips', 'POST', { status: 'ACTIVE' });
+    assert.equal(res.status, 400);
+  });
+
   await t.test('GET /api/geofences returns empty array when backend has no zones', async () => {
     const res = await makeRequest('/api/geofences');
     assert.equal(res.status, 200);

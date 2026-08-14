@@ -50,6 +50,7 @@ fun SafetyCenterScreen(
   onBack: () -> Unit,
   modifier: Modifier = Modifier,
   state: SafetyCenterState = AegisSampleState.safetyCenter,
+  onOpenIncidentCheck: (() -> Unit)? = null,
 ) {
   AegisBackground(modifier = modifier) {
     Column(
@@ -73,8 +74,31 @@ fun SafetyCenterScreen(
         Text(text = section.title, style = MaterialTheme.typography.headlineSmall, color = Ink)
         GlassCard(shape = RoundedCornerShape(26.dp)) {
           Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            section.rows.forEach { SafetyRow(row = it) }
+            section.rows.forEach { row ->
+              // The Motion detection row opens the incident-check preview screen
+              // (prepared for the future sensor-fusion trigger).
+              val rowOnClick =
+                if (row.label == "Motion detection") onOpenIncidentCheck else null
+              SafetyRow(row = row, onClick = rowOnClick)
+            }
           }
+        }
+      }
+
+      if (onOpenIncidentCheck != null) {
+        Surface(
+          onClick = onOpenIncidentCheck,
+          shape = RoundedCornerShape(20.dp),
+          color = GlassSurface,
+          border = BorderStroke(1.dp, GlassBorder),
+        ) {
+          Text(
+            text = "Preview: Automatic incident check",
+            style = MaterialTheme.typography.labelLarge,
+            color = Ink,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+          )
         }
       }
     }
@@ -82,7 +106,7 @@ fun SafetyCenterScreen(
 }
 
 @Composable
-private fun SafetyRow(row: SafetyCenterRow) {
+private fun SafetyRow(row: SafetyCenterRow, onClick: (() -> Unit)? = null) {
   val color =
     when (row.level) {
       GuardianLevel.ACTIVE -> SafeGreen
@@ -90,7 +114,13 @@ private fun SafetyRow(row: SafetyCenterRow) {
       GuardianLevel.ATTENTION -> CautionAmber
       GuardianLevel.EMERGENCY -> DangerRed
     }
-  Surface(shape = RoundedCornerShape(18.dp), color = GlassSurface, border = BorderStroke(1.dp, GlassBorder)) {
+  Surface(
+    onClick = onClick ?: {},
+    enabled = onClick != null,
+    shape = RoundedCornerShape(18.dp),
+    color = GlassSurface,
+    border = BorderStroke(1.dp, GlassBorder),
+  ) {
     Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
       Box(modifier = Modifier.size(30.dp).clip(CircleShape).background(color.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
         Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(color))

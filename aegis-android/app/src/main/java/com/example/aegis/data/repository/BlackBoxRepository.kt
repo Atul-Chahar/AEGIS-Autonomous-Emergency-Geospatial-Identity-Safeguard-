@@ -16,4 +16,7 @@ interface BlackBoxRepository {
   fun observeLatestBreadcrumbForTrip(tripId: String): Flow<Breadcrumb?>
   suspend fun getBreadcrumbsForTrip(tripId: String): List<Breadcrumb>
   suspend fun getUnsyncedBreadcrumbs(): List<Breadcrumb>
+
+  /** Marks the given breadcrumbs as synced to the backend (offline-first outbox pattern). */
+  suspend fun markBreadcrumbsSynced(breadcrumbIds: List<String>)
 }

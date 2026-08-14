@@ -1,10 +1,18 @@
 /**
- * DEVELOPMENT SEED FIXTURES - CHERRAPUNJI (SOHRA) REGION FOCUS
- * Realistic geospatial dataset locked to Cherrapunji sector (25.275°N, 91.730°E).
- * Uses realistic, organic multi-vertex geographic boundaries (river contours, mountain gorges, cliff edges).
+ * DEVELOPMENT REFERENCE FIXTURES - CHERRAPUNJI (SOHRA) REGION FOCUS
+ *
+ * ⚠️ REFERENCE / CONFIGURATION DATA ONLY.
+ * This file must NEVER seed live telemetry (tourists, trips, breadcrumbs,
+ * incidents, hazards). Those arrive exclusively from the Android app via
+ * the ingestion APIs — anything seeded here would be shown to authorities
+ * as if it were real and would break the "no fake data" guarantee.
+ *
+ * What is legitimately reference/config data:
+ *  - Geofences: the static safety-risk map of the region.
+ *  - Responders: the configured rescue-unit registry (stations, capabilities).
+ *  - Route segments: static responder routing network used by the
+ *    RescueabilityEngine.
  */
-const now = new Date();
-
 module.exports = {
   devResponders: [
     {
@@ -160,170 +168,6 @@ module.exports = {
         [25.2095, 91.6810],
         [25.2130, 91.6680]
       ]
-    }
-  ],
-
-  devHazards: [
-    {
-      id: 'HAZ-01',
-      reporterId: 'SDRF-OBSERVER-01',
-      reporterRole: 'AUTHORITY',
-      hazardType: 'LANDSLIDE_COLLAPSE',
-      lat: 25.274,
-      lon: 91.688,
-      description: 'Major rockfall and road blockage along Nohkalikai canyon descent. Impassable for standard vehicles.',
-      status: 'VERIFIED_DANGER',
-      confidenceScore: 98,
-      verificationStatus: 'AUTHORITY_CONFIRMED',
-      timestamp: new Date(now.getTime() - 15 * 60000).toISOString()
-    },
-    {
-      id: 'HAZ-02',
-      reporterId: 'TOURIST-REP-44',
-      reporterRole: 'TOURIST',
-      hazardType: 'CLIFF_EROSION',
-      lat: 25.225,
-      lon: 91.695,
-      description: 'High vertical cliff instability near Seven Sisters boundary. Zero-entry perimeter active.',
-      status: 'ACTIVE_WARNING',
-      confidenceScore: 92,
-      verificationStatus: 'LIKELY',
-      timestamp: new Date(now.getTime() - 30 * 60000).toISOString()
-    }
-  ],
-
-  devTourists: [
-    {
-      touristId: 'TST-KHL-2026',
-      idHash: '0x8f2d5a1b3c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a',
-      status: 'ACTIVE',
-      validFrom: new Date(now.getTime() - 86400000).toISOString(),
-      validTo: new Date(now.getTime() + 6 * 86400000).toISOString()
-    },
-    {
-      touristId: 'TST-SHL-4041',
-      idHash: '0x1c3e5a7b9d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c',
-      status: 'ACTIVE',
-      validFrom: new Date(now.getTime() - 86400000).toISOString(),
-      validTo: new Date(now.getTime() + 6 * 86400000).toISOString()
-    },
-    {
-      touristId: 'TST-DWK-9082',
-      idHash: '0x4a8f9b2c1d3e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
-      status: 'ACTIVE',
-      validFrom: new Date(now.getTime() - 86400000).toISOString(),
-      validTo: new Date(now.getTime() + 6 * 86400000).toISOString()
-    },
-    {
-      touristId: 'TST-MWS-7711',
-      idHash: '0x9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b',
-      status: 'ACTIVE',
-      validFrom: new Date(now.getTime() - 86400000).toISOString(),
-      validTo: new Date(now.getTime() + 6 * 86400000).toISOString()
-    }
-  ],
-
-  devTrips: [
-    {
-      id: 'TRIP-101',
-      touristId: 'TST-KHL-2026',
-      idHash: '0x8f2d5a1b3c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a',
-      plannedRouteId: 'Nongriat Double Decker Living Root Trail',
-      currentZoneId: 'Nongriat Safe Corridor',
-      status: 'ACTIVE',
-      lat: 25.252,
-      lon: 91.675,
-      accuracyMeters: 4,
-      batteryPercent: 88,
-      riskScore: 12,
-      source: 'GPS_LIVE',
-      startedAt: new Date(now.getTime() - 2 * 3600000).toISOString(),
-      updatedAt: new Date(now.getTime() - 60000).toISOString()
-    },
-    {
-      id: 'TRIP-102',
-      touristId: 'TST-SHL-4041',
-      idHash: '0x1c3e5a7b9d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c',
-      plannedRouteId: 'Mawsmai Ridge Trek',
-      currentZoneId: 'Mawsmai Caution Yellow Zone',
-      status: 'ACTIVE',
-      lat: 25.244,
-      lon: 91.726,
-      accuracyMeters: 14,
-      batteryPercent: 48,
-      riskScore: 48,
-      source: 'BLE_MESH_CACHED',
-      startedAt: new Date(now.getTime() - 4 * 3600000).toISOString(),
-      updatedAt: new Date(now.getTime() - 20 * 60000).toISOString()
-    },
-    {
-      id: 'TRIP-103',
-      touristId: 'TST-DWK-9082',
-      idHash: '0x4a8f9b2c1d3e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
-      plannedRouteId: 'Nohkalikai Canyon Descent',
-      currentZoneId: 'Nohkalikai Red Zone',
-      status: 'ACTIVE',
-      lat: 25.275,
-      lon: 91.685,
-      accuracyMeters: 6,
-      batteryPercent: 18,
-      riskScore: 95,
-      source: 'EMERGENCY_BLE_BEACON',
-      startedAt: new Date(now.getTime() - 3 * 3600000).toISOString(),
-      updatedAt: new Date(now.getTime() - 4 * 60000).toISOString()
-    },
-    {
-      id: 'TRIP-104',
-      touristId: 'TST-MWS-7711',
-      idHash: '0x9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b',
-      plannedRouteId: 'Cherrapunji Town & Eco Park Hub',
-      currentZoneId: 'Sohra Safe Corridor',
-      status: 'ACTIVE',
-      lat: 25.280,
-      lon: 91.730,
-      accuracyMeters: 5,
-      batteryPercent: 94,
-      riskScore: 8,
-      source: 'GPS_LIVE',
-      startedAt: new Date(now.getTime() - 1 * 3600000).toISOString(),
-      updatedAt: new Date(now.getTime() - 90000).toISOString()
-    }
-  ],
-
-  devBreadcrumbs: {
-    'TRIP-101': [
-      { id: 'B-101-1', tripId: 'TRIP-101', lat: 25.246, lon: 91.668, accuracyMeters: 6, batteryPercent: 95, timestamp: new Date(now.getTime() - 45 * 60000).toISOString() },
-      { id: 'B-101-2', tripId: 'TRIP-101', lat: 25.249, lon: 91.671, accuracyMeters: 5, batteryPercent: 92, timestamp: new Date(now.getTime() - 30 * 60000).toISOString() },
-      { id: 'B-101-3', tripId: 'TRIP-101', lat: 25.252, lon: 91.675, accuracyMeters: 4, batteryPercent: 88, timestamp: new Date(now.getTime() - 1 * 60000).toISOString() }
-    ],
-    'TRIP-102': [
-      { id: 'B-102-1', tripId: 'TRIP-102', lat: 25.238, lon: 91.715, accuracyMeters: 10, batteryPercent: 62, timestamp: new Date(now.getTime() - 90 * 60000).toISOString() },
-      { id: 'B-102-2', tripId: 'TRIP-102', lat: 25.244, lon: 91.726, accuracyMeters: 14, batteryPercent: 48, timestamp: new Date(now.getTime() - 20 * 60000).toISOString() }
-    ],
-    'TRIP-103': [
-      { id: 'B-103-1', tripId: 'TRIP-103', lat: 25.268, lon: 91.695, accuracyMeters: 5, batteryPercent: 60, timestamp: new Date(now.getTime() - 60 * 60000).toISOString() },
-      { id: 'B-103-2', tripId: 'TRIP-103', lat: 25.272, lon: 91.690, accuracyMeters: 6, batteryPercent: 35, timestamp: new Date(now.getTime() - 30 * 60000).toISOString() },
-      { id: 'B-103-3', tripId: 'TRIP-103', lat: 25.275, lon: 91.685, accuracyMeters: 6, batteryPercent: 18, timestamp: new Date(now.getTime() - 4 * 60000).toISOString() }
-    ],
-    'TRIP-104': [
-      { id: 'B-104-1', tripId: 'TRIP-104', lat: 25.275, lon: 91.725, accuracyMeters: 6, batteryPercent: 98, timestamp: new Date(now.getTime() - 30 * 60000).toISOString() },
-      { id: 'B-104-2', tripId: 'TRIP-104', lat: 25.280, lon: 91.730, accuracyMeters: 5, batteryPercent: 94, timestamp: new Date(now.getTime() - 1.5 * 60000).toISOString() }
-    ]
-  },
-
-  devIncidents: [
-    {
-      id: 'INC-SOS-01',
-      tripId: 'TRIP-103',
-      touristId: 'TST-DWK-9082',
-      idHash: '0x4a8f9b2c1d3e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
-      lat: 25.275,
-      lon: 91.685,
-      batteryPct: 18,
-      channel: 'BLE_MESH_RELAY',
-      status: 'OPEN',
-      riskScore: 95,
-      timestamp: new Date(now.getTime() - 4 * 60000).toISOString()
     }
   ]
 };

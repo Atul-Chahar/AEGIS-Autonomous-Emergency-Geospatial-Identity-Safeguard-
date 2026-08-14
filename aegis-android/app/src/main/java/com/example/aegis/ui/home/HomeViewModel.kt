@@ -19,6 +19,8 @@ import com.example.aegis.safety.RouteDeviationEngine
 import com.example.aegis.safety.SafetyCheckInManager
 import com.example.aegis.safety.TrekRoute
 import com.example.aegis.service.TripTrackingService
+import com.example.aegis.ui.state.GuardianLevel
+import com.example.aegis.ui.state.GuardianSystemState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +38,22 @@ class HomeViewModel(
   private val deviationEngine: RouteDeviationEngine = RouteDeviationEngine(),
   val checkInManager: SafetyCheckInManager? = null,
   val nearbyTransport: NearbyTransport? = null,
+  /** Set by the app container while the SOS overlay is open, so Home reflects EMERGENCY honestly. */
+  private val emergencyOverlayActive: StateFlow<Boolean> = MutableStateFlow(false),
 ) : ViewModel() {
+
+  // Reference route for deviation evaluation (same one surfaced in routeDeviationText).
+  private val defaultTrekRoute =
+    TrekRoute(
+      routeId = "cherrapunji-ridge",
+      name = "Cherrapunji Ridge Trail",
+      waypoints = listOf(
+        GeoPoint(25.2600, 91.6800),
+        GeoPoint(25.2800, 91.7000),
+        GeoPoint(25.3000, 91.7500),
+      ),
+      corridorWidthMeters = 50.0,
+    )
 
   val zones: StateFlow<List<SafetyZone>> =
     observeZones().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -78,6 +95,25 @@ class HomeViewModel(
     blackBoxRepository.observeLatestBreadcrumb()
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+  /**
+   * Real guardian status derived from actual state (no fake levels):
+   *  - SOS overlay open            → EMERGENCY
+   *  - no active trip              → LIMITED (protection ready, journey not started)
+   *  - trip + route deviation      → ATTENTION
+   *  - trip + no location fix yet  → LIMITED (tracking with offline/mesh only)
+   *  - trip + valid fix, on route  → ACTIVE
+   */
+  val guardianState: StateFlow<GuardianSystemState> =
+    combine(isTrackingActive, latestBreadcrumb, emergencyOverlayActive) { tracking, breadcrumb, emergency ->
+      when {
+        emergency -> GuardianSystemState(GuardianLevel.EMERGENCY)
+        !tracking -> GuardianSystemState(GuardianLevel.LIMITED)
+        isDeviated(breadcrumb) -> GuardianSystemState(GuardianLevel.ATTENTION)
+        breadcrumb == null -> GuardianSystemState(GuardianLevel.LIMITED)
+        else -> GuardianSystemState(GuardianLevel.ACTIVE)
+      }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GuardianSystemState(GuardianLevel.LIMITED))
+
   val locationText: StateFlow<String> =
     latestBreadcrumb.map { breadcrumb ->
       if (breadcrumb != null) {
@@ -109,19 +145,16 @@ class HomeViewModel(
         accuracyMeters = breadcrumb.horizontalAccuracyMeters,
         timestampEpochMillis = breadcrumb.timestamp,
       )
-      val defaultRoute = TrekRoute(
-        routeId = "cherrapunji-ridge",
-        name = "Cherrapunji Ridge Trail",
-        waypoints = listOf(
-          GeoPoint(25.2600, 91.6800),
-          GeoPoint(25.2800, 91.7000),
-          GeoPoint(25.3000, 91.7500),
-        ),
-        corridorWidthMeters = 50.0,
-      )
-      val dev = deviationEngine.evaluateDeviation(fix, defaultRoute)
+      val dev = deviationEngine.evaluateDeviation(fix, defaultTrekRoute)
       if (dev.isDeviated) {
-        String.format(Locale.US, "You are %.0f m away from your planned trail.", dev.effectiveDistanceMeters)
+        // Raw meter counts are only meaningful close to the route; far away
+        // (e.g. testing from another city) we state it plainly instead of
+        // printing a meaningless "39512 m".
+        if (dev.effectiveDistanceMeters > 5_000) {
+          "You are far from your planned trail."
+        } else {
+          String.format(Locale.US, "You are %.0f m away from your planned trail.", dev.effectiveDistanceMeters)
+        }
       } else {
         "You are on your planned trail."
       }
@@ -140,5 +173,16 @@ class HomeViewModel(
   fun stopRoute(context: Context) {
     TripTrackingService.stop(context)
     nearbyTransport?.stopAll()
+  }
+
+  private fun isDeviated(breadcrumb: Breadcrumb?): Boolean {
+    if (breadcrumb == null) return false
+    val fix = LocationResult.Success(
+      latitude = breadcrumb.latitude,
+      longitude = breadcrumb.longitude,
+      accuracyMeters = breadcrumb.horizontalAccuracyMeters,
+      timestampEpochMillis = breadcrumb.timestamp,
+    )
+    return deviationEngine.evaluateDeviation(fix, defaultTrekRoute).isDeviated
   }
 }

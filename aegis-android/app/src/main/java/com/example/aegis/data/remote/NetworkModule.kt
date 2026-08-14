@@ -11,6 +11,9 @@ object NetworkModule {
     Json {
       ignoreUnknownKeys = true
       encodeDefaults = true
+      // Absent fields (null) are omitted from the payload — the backend's
+      // validators treat an absent lat/lon as "use defaults" but reject null.
+      explicitNulls = false
     }
 
   val okHttpClient: OkHttpClient by lazy {

@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -59,7 +58,6 @@ import com.example.aegis.Map
 import com.example.aegis.TouristId
 import com.example.aegis.domain.model.SafetyZone
 import com.example.aegis.domain.model.TouristIdentity
-import com.example.aegis.domain.model.ZoneStatus
 import com.example.aegis.domain.usecase.GetTouristIdentityUseCase
 import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
 import com.example.aegis.data.repository.demo.DemoIdentityRepository
@@ -81,10 +79,10 @@ import com.example.aegis.ui.components.AegisBackground
 import com.example.aegis.ui.components.AegisBottomNavScaffold
 import com.example.aegis.ui.components.BottomNavItem
 import com.example.aegis.qr.QrCodeGenerator
-import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.FilterQuality
 import com.example.aegis.ui.components.FilterPill
 import com.example.aegis.ui.components.GlassCard
+import com.example.aegis.ui.components.GuardianStatePill
 import com.example.aegis.ui.components.MetaItem
 import com.example.aegis.ui.components.RegionTag
 import com.example.aegis.ui.components.SectionHeader
@@ -115,6 +113,7 @@ fun HomeScreen(
   val routeDeviationText by viewModel.routeDeviationText.collectAsStateWithLifecycle()
   val isMeshActive by viewModel.isMeshActive.collectAsStateWithLifecycle()
   val activePeerCount by viewModel.activePeerCount.collectAsStateWithLifecycle()
+  val guardianState by viewModel.guardianState.collectAsStateWithLifecycle()
 
   val navItems =
     listOf(
@@ -153,12 +152,7 @@ fun HomeScreen(
             color = if (isMeshActive) SafeGreen else InkSoft,
           )
         }
-        GuardianWidget(
-          status = featured?.status,
-          isMeshActive = isMeshActive,
-          peerCount = activePeerCount,
-          onClick = onOpenSafetyCenter,
-        )
+        GuardianStatePill(state = guardianState, onClick = onOpenSafetyCenter)
       }
 
       // Hero — region tag + big title + scan pill
@@ -257,79 +251,6 @@ fun HomeScreen(
           .padding(horizontal = 20.dp)
           .padding(bottom = 10.dp),
     )
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Guardian widget — live safety status of the featured zone.
-// ─────────────────────────────────────────────────────────────
-@Composable
-private fun GuardianWidget(
-  status: ZoneStatus?,
-  isMeshActive: Boolean = false,
-  peerCount: Int = 0,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier,
-) {
-  val (emoji, label) =
-    if (isMeshActive) {
-      "📡" to "Relay Available ($peerCount)"
-    } else {
-      when (status) {
-        ZoneStatus.SAFE -> "🟢" to "Safe Zone"
-        ZoneStatus.CAUTION -> "🟡" to "Caution Zone"
-        ZoneStatus.HIGH_RISK -> "🔴" to "High Risk"
-        ZoneStatus.UNKNOWN -> "⚪" to "Unknown"
-        null -> "🛰" to "Guarding"
-      }
-    }
-  Surface(
-    onClick = onClick,
-    modifier = modifier,
-    shape = RoundedCornerShape(50),
-    color = GlassSurface,
-    border = BorderStroke(1.dp, if (isMeshActive) SafeGreen.copy(alpha = 0.6f) else GlassBorder),
-  ) {
-    Row(
-      modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      Box(
-        modifier =
-          Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(if (isMeshActive) SafeGreen.copy(alpha = 0.25f) else SafeGreen.copy(alpha = 0.16f))
-            .border(1.dp, SafeGreen.copy(alpha = 0.55f), CircleShape),
-        contentAlignment = Alignment.Center,
-      ) {
-        Text(text = if (isMeshActive) "📡" else "🛰", fontSize = 16.sp)
-      }
-      Spacer(modifier = Modifier.width(10.dp))
-      Column {
-        Text(
-          text = if (isMeshActive) "Relay Available" else "Guardian",
-          style = MaterialTheme.typography.labelSmall,
-          color = if (isMeshActive) SafeGreen else InkSoft,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-          Text(text = emoji, fontSize = 10.sp)
-          Spacer(modifier = Modifier.width(4.dp))
-          Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color =
-              when (status) {
-                ZoneStatus.SAFE -> SafeGreen
-                ZoneStatus.CAUTION -> CautionAmber
-                ZoneStatus.HIGH_RISK -> DangerRed
-                ZoneStatus.UNKNOWN -> InkSoft
-                null -> Ink
-              },
-          )
-        }
-      }
-    }
   }
 }
 

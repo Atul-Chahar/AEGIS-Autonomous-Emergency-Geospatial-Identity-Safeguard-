@@ -85,6 +85,11 @@ class RoomBlackBoxRepository(
     return breadcrumbDao.getUnsyncedBreadcrumbs().map { it.toDomain() }
   }
 
+  override suspend fun markBreadcrumbsSynced(breadcrumbIds: List<String>) {
+    if (breadcrumbIds.isEmpty()) return
+    breadcrumbDao.markBreadcrumbsSynced(breadcrumbIds)
+  }
+
   private fun TripEntity.toDomain() = Trip(
     tripId = tripId,
     touristId = touristId,

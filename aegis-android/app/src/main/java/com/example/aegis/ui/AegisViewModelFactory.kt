@@ -11,8 +11,11 @@ import com.example.aegis.domain.usecase.GetRescuePostUseCase
 import com.example.aegis.domain.usecase.GetTouristIdentityUseCase
 import com.example.aegis.domain.usecase.GetZoneByIdUseCase
 import com.example.aegis.domain.usecase.ObserveSafetyZonesUseCase
+import com.example.aegis.ui.activity.ActivityViewModel
+import com.example.aegis.ui.activity.JourneyBlackBoxViewModel
 import com.example.aegis.ui.home.HomeViewModel
 import com.example.aegis.ui.id.TouristIdViewModel
+import com.example.aegis.ui.map.MapViewModel
 import com.example.aegis.ui.zone.ZoneDetailViewModel
 import com.example.aegis.ui.zones.ZonesViewModel
 
@@ -38,6 +41,33 @@ object AegisViewModelFactory : ViewModelProvider.Factory {
             deviationEngine = container.routeDeviationEngine,
             checkInManager = container.safetyCheckInManager,
             nearbyTransport = container.nearbyTransport,
+            emergencyOverlayActive = container.emergencyOverlayActive,
+          )
+        }
+
+        modelClass.isAssignableFrom(JourneyBlackBoxViewModel::class.java) -> {
+          JourneyBlackBoxViewModel(blackBoxRepository = container.blackBoxRepository)
+        }
+
+        modelClass.isAssignableFrom(ActivityViewModel::class.java) -> {
+          ActivityViewModel(
+            blackBoxRepository = container.blackBoxRepository,
+            checkInRepository = container.checkInRepository,
+            sanityChecker = container.locationSanityChecker,
+            geofenceEngine = container.offlineGeofenceEngine,
+            deviationEngine = container.routeDeviationEngine,
+            emergencyOverlayActive = container.emergencyOverlayActive,
+          )
+        }
+
+        modelClass.isAssignableFrom(MapViewModel::class.java) -> {
+          MapViewModel(
+            observeZones = ObserveSafetyZonesUseCase(container.safetyZoneRepository),
+            blackBoxRepository = container.blackBoxRepository,
+            sanityChecker = container.locationSanityChecker,
+            geofenceEngine = container.offlineGeofenceEngine,
+            deviationEngine = container.routeDeviationEngine,
+            emergencyOverlayActive = container.emergencyOverlayActive,
           )
         }
 
@@ -59,6 +89,7 @@ object AegisViewModelFactory : ViewModelProvider.Factory {
             dispatchSos = DispatchSosUseCase(container.emergencyRepository),
             identityRepository = container.identityRepository,
             blackBoxRepository = container.blackBoxRepository,
+            onOverlayVisibilityChange = { visible -> container.emergencyOverlayActive.value = visible },
           )
         }
 

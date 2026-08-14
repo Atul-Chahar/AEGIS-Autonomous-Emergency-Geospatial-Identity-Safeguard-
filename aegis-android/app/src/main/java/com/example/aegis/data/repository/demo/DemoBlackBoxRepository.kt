@@ -61,4 +61,14 @@ class DemoBlackBoxRepository : BlackBoxRepository {
 
   override suspend fun getUnsyncedBreadcrumbs(): List<Breadcrumb> =
     breadcrumbsList.filter { it.syncState == "PENDING" }
+
+  override suspend fun markBreadcrumbsSynced(breadcrumbIds: List<String>) {
+    val ids = breadcrumbIds.toSet()
+    for (i in breadcrumbsList.indices) {
+      val breadcrumb = breadcrumbsList[i]
+      if (breadcrumb.breadcrumbId in ids) {
+        breadcrumbsList[i] = breadcrumb.copy(syncState = "SYNCED")
+      }
+    }
+  }
 }

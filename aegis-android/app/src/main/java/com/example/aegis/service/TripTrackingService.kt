@@ -116,6 +116,9 @@ class TripTrackingService : Service() {
 
       val trip = repository.startTrip(touristId, plannedRouteId)
       currentTripId = trip.tripId
+      // Push the trip to the gateway immediately so authorities see it
+      // promptly (periodic sync continues from there).
+      BreadcrumbSyncWorker.syncNow(this@TripTrackingService)
       startTracking(trip.tripId)
     }
 
@@ -158,7 +161,7 @@ class TripTrackingService : Service() {
             bearingDegrees = locResult.bearingDegrees ?: 0f,
             batteryPercent = batteryPct,
             activityMode = currentActivityMode,
-            locationSource = "FUSED",
+            locationSource = locResult.source,
             isEstimated = false,
             syncState = "PENDING",
           )
@@ -174,8 +177,10 @@ class TripTrackingService : Service() {
   private fun stopTrackingAndSelf() {
     locationJob?.cancel()
     sensorRecorder?.stop()
-    val tripId = currentTripId
     serviceScope.launch {
+      // Resolve the trip even if this is a fresh instance (process was killed
+      // while a trip was active) — otherwise the trip would stay ACTIVE forever.
+      val tripId = currentTripId ?: repository.getActiveTrip()?.tripId
       if (tripId != null) {
         repository.endTrip(tripId)
       }
