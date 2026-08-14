@@ -6,10 +6,9 @@ import com.example.aegis.data.remote.OkHttpAegisApi
 import com.example.aegis.data.repository.CheckInRepository
 import com.example.aegis.data.repository.EmergencyRepository
 import com.example.aegis.data.repository.IdentityRepository
+import com.example.aegis.data.repository.LocalIdentityRepository
 import com.example.aegis.data.repository.RoomCheckInRepository
 import com.example.aegis.data.repository.SafetyZoneRepository
-import com.example.aegis.data.repository.demo.DemoEmergencyRepository
-import com.example.aegis.data.repository.demo.DemoIdentityRepository
 import com.example.aegis.data.repository.demo.DemoSafetyZoneRepository
 import com.example.aegis.location.AndroidLocationProvider
 import com.example.aegis.location.LocationProvider
@@ -46,7 +45,11 @@ class AppContainer(context: Context) {
       nearbyTransport = nearbyTransport,
     )
   }
-  val identityRepository: IdentityRepository = DemoIdentityRepository()
+  // Real per-install identity: unique tourist ID generated on first launch
+  // and registered with the gateway (keccak256 commitment) so incidents link
+  // a real idHash and the dashboard no longer shows one ID for every device.
+  val identityRepository: IdentityRepository =
+    LocalIdentityRepository(appContext, api = aegisApi)
 
   // Real, Room-backed check-ins.
   val checkInRepository: CheckInRepository by lazy {

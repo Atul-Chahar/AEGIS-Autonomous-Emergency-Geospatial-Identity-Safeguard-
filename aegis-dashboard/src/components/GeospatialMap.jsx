@@ -4,10 +4,13 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Activity, AlertOctagon, AlertTriangle, Ban, Flame, Layers, Navigation, Shield, ShieldAlert, Target } from 'lucide-react';
 
+// Operational area spans Cherrapunji (91.60-91.82) AND Dawki (91.297) —
+// SOS incidents/relays can originate anywhere in the sector, so the map
+// must not be hard-locked to Cherrapunji or those markers are invisible.
 const CHERRAPUNJI_CENTER = [25.270, 91.715];
 const CHERRAPUNJI_BOUNDS = [
-  [25.18, 91.60], // Southwest bound
-  [25.36, 91.82]  // Northeast bound
+  [25.05, 91.15], // Southwest bound (covers Dawki 91.297)
+  [25.45, 91.95]  // Northeast bound
 ];
 
 const iconByStatus = {
@@ -51,7 +54,7 @@ function createCustomIcon(color, isPulsing) {
 }
 
 // Auto-zoomer & recenter on tracked active tourist
-function MapController({ selectedSubject }) {
+function MapController({ selectedSubject, subjects }) {
   const map = useMap();
 
   useEffect(() => {
@@ -60,8 +63,17 @@ function MapController({ selectedSubject }) {
         animate: true,
         duration: 1.2
       });
+      return;
     }
-  }, [selectedSubject?.lat, selectedSubject?.lon, selectedSubject?.subjectId, map]);
+
+    // No subject selected yet — fit all live subjects (incl. SOS) in view.
+    const points = (subjects || [])
+      .filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon))
+      .map(s => [s.lat, s.lon]);
+    if (points.length > 0) {
+      map.fitBounds(points, { padding: [40, 40], maxZoom: 13 });
+    }
+  }, [selectedSubject?.lat, selectedSubject?.lon, selectedSubject?.subjectId, subjects, map]);
 
   return null;
 }
@@ -160,7 +172,7 @@ export default function GeospatialMap({
         maxBoundsViscosity={1.0}
         style={{ width: '100%', height: '100%' }}
       >
-        <MapController selectedSubject={selectedSubject} />
+        <MapController selectedSubject={selectedSubject} subjects={subjects} />
 
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

@@ -82,7 +82,11 @@ export default function Sidebar({
                 Gateway {connectionStatus}
               </span>
               <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)' }}>
-                WebSocket Sepolia Live
+                {connectionStatus === 'LIVE'
+                  ? 'WebSocket • Live stream connected'
+                  : connectionStatus === 'RECONNECTING'
+                    ? 'WebSocket • Reconnecting…'
+                    : 'WebSocket • Not connected'}
               </span>
             </div>
           )}

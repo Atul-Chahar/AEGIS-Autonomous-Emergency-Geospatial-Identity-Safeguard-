@@ -124,19 +124,14 @@ export default function SubjectDetailDrawer({
   }
 
   const isSos = selectedSubject.status === 'SOS' || selectedSubject.staleStatus === 'EMERGENCY_STALE';
-  const routeName = selectedSubject.plannedRouteId || 'Nongriat Living Root Bridge Trail';
-  const routeInfo = ROUTE_METADATA[routeName] || {
-    distance: '3.5 km',
-    duration: '2.0 hrs',
-    difficulty: 'Moderate',
-    elevation: '+180m',
-    trailType: 'Cherrapunji Highland Corridor',
-    guidePost: 'Sohra Station'
-  };
+  const routeName = selectedSubject.plannedRouteId || 'Not specified';
+  // Static route metadata is only meaningful for a REAL chosen route;
+  // without one we must not fabricate distance/duration figures.
+  const routeInfo = routeName !== 'Not specified' ? (ROUTE_METADATA[routeName] || null) : null;
 
-  const batteryPct = selectedSubject.batteryPercent != null ? selectedSubject.batteryPercent : 75;
-  const isBatteryLow = batteryPct <= 20;
-  const isBatteryMedium = batteryPct > 20 && batteryPct <= 50;
+  const batteryPct = selectedSubject.batteryPercent != null ? selectedSubject.batteryPercent : null;
+  const isBatteryLow = batteryPct != null && batteryPct <= 20;
+  const isBatteryMedium = batteryPct != null && batteryPct > 20 && batteryPct <= 50;
 
   const trajectory = selectedSubject.trajectory || [];
 
@@ -173,7 +168,11 @@ export default function SubjectDetailDrawer({
                 </span>
               </div>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                Trip ID: {selectedSubject.tripId || selectedSubject.incidentId || 'Direct Active Track'}
+                {selectedSubject.tripId
+                  ? `Trip ID: ${selectedSubject.tripId}`
+                  : selectedSubject.incidentId
+                    ? `Incident ID: ${selectedSubject.incidentId}`
+                    : 'Direct Active Track'}
               </span>
             </div>
           </div>
@@ -236,16 +235,16 @@ export default function SubjectDetailDrawer({
                   </span>
                 </div>
                 <strong style={{ fontSize: '1.05rem', color: isBatteryLow ? '#E11D48' : isBatteryMedium ? '#D97706' : '#059669' }}>
-                  {batteryPct}%
+                  {batteryPct != null ? `${batteryPct}%` : '--'}
                 </strong>
               </div>
 
-              {/* Progress bar */}
+              {/* Progress bar (only when real battery telemetry exists) */}
               <div style={{ height: 8, width: '100%', background: 'rgba(0, 0, 0, 0.06)', borderRadius: 5, overflow: 'hidden' }}>
                 <div
                   style={{
                     height: '100%',
-                    width: `${batteryPct}%`,
+                    width: `${batteryPct != null ? batteryPct : 0}%`,
                     background: isBatteryLow ? 'linear-gradient(90deg, #E11D48, #BE123C)' : isBatteryMedium ? 'linear-gradient(90deg, #D97706, #F59E0B)' : 'linear-gradient(90deg, #059669, #10B981)',
                     borderRadius: 5
                   }}
@@ -253,8 +252,8 @@ export default function SubjectDetailDrawer({
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-dim)' }}>
-                <span>{isBatteryLow ? 'Critical Low (BLE beacon power-save mode)' : isBatteryMedium ? 'Normal discharge rate' : 'Optimal power level'}</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{isBatteryLow ? '~1.5 hrs remaining' : '~14 hrs remaining'}</span>
+                <span>{batteryPct == null ? 'No battery telemetry yet' : isBatteryLow ? 'Critical Low (BLE beacon power-save mode)' : isBatteryMedium ? 'Normal discharge rate' : 'Optimal power level'}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{batteryPct == null ? '--' : isBatteryLow ? '~1.5 hrs remaining' : '~14 hrs remaining'}</span>
               </div>
             </div>
 
@@ -287,7 +286,7 @@ export default function SubjectDetailDrawer({
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.5)', paddingBottom: '0.45rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Current Geofence Zone</span>
                 <span style={{ color: 'var(--text-bright)', fontWeight: 700 }}>
-                  {selectedSubject.currentZoneId || 'Nongriat Safe Corridor'}
+                  {selectedSubject.currentZoneId || 'Not determined'}
                 </span>
               </div>
 
@@ -350,31 +349,40 @@ export default function SubjectDetailDrawer({
                 {routeInfo.trailType}
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.82rem' }}>
-                <div style={{ background: 'rgba(255, 255, 255, 0.55)', padding: '0.65rem 0.75rem', borderRadius: 12 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', fontWeight: 700 }}>TOTAL DISTANCE</span>
-                  <strong style={{ color: 'var(--text-bright)', fontSize: '0.92rem' }}>{routeInfo.distance}</strong>
-                </div>
-                <div style={{ background: 'rgba(255, 255, 255, 0.55)', padding: '0.65rem 0.75rem', borderRadius: 12 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', fontWeight: 700 }}>EST. DURATION</span>
-                  <strong style={{ color: 'var(--text-bright)', fontSize: '0.92rem' }}>{routeInfo.duration}</strong>
-                </div>
-                <div style={{ background: 'rgba(255, 255, 255, 0.55)', padding: '0.65rem 0.75rem', borderRadius: 12 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', fontWeight: 700 }}>TRAIL DIFFICULTY</span>
-                  <strong style={{ color: routeInfo.difficulty.includes('High') ? '#E11D48' : '#059669', fontSize: '0.92rem' }}>
-                    {routeInfo.difficulty}
-                  </strong>
-                </div>
-                <div style={{ background: 'rgba(255, 255, 255, 0.55)', padding: '0.65rem 0.75rem', borderRadius: 12 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', fontWeight: 700 }}>ELEVATION CHANGE</span>
-                  <strong style={{ color: 'var(--text-bright)', fontSize: '0.92rem' }}>{routeInfo.elevation}</strong>
-                </div>
-              </div>
+              {routeInfo ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.82rem' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.55)', padding: '0.65rem 0.75rem', borderRadius: 12 }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', fontWeight: 700 }}>TOTAL DISTANCE</span>
+                      <strong style={{ color: 'var(--text-bright)', fontSize: '0.92rem' }}>{routeInfo.distance}</strong>
+                    </div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.55)', padding: '0.65rem 0.75rem', borderRadius: 12 }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', fontWeight: 700 }}>EST. DURATION</span>
+                      <strong style={{ color: 'var(--text-bright)', fontSize: '0.92rem' }}>{routeInfo.duration}</strong>
+                    </div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.55)', padding: '0.65rem 0.75rem', borderRadius: 12 }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', fontWeight: 700 }}>TRAIL DIFFICULTY</span>
+                      <strong style={{ color: routeInfo.difficulty.includes('High') ? '#E11D48' : '#059669', fontSize: '0.92rem' }}>
+                        {routeInfo.difficulty}
+                      </strong>
+                    </div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.55)', padding: '0.65rem 0.75rem', borderRadius: 12 }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', fontWeight: 700 }}>ELEVATION CHANGE</span>
+                      <strong style={{ color: 'var(--text-bright)', fontSize: '0.92rem' }}>{routeInfo.elevation}</strong>
+                    </div>
+                  </div>
 
-              <div style={{ marginTop: '1rem', padding: '0.65rem 0.85rem', background: 'rgba(2, 132, 199, 0.08)', borderRadius: 12, fontSize: '0.8rem', color: 'var(--primary-cyan)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <ShieldCheck size={16} />
-                <span>Primary Ranger Outpost: <strong>{routeInfo.guidePost}</strong></span>
-              </div>
+                  <div style={{ marginTop: '1rem', padding: '0.65rem 0.85rem', background: 'rgba(2, 132, 199, 0.08)', borderRadius: 12, fontSize: '0.8rem', color: 'var(--primary-cyan)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <ShieldCheck size={16} />
+                    <span>Primary Ranger Outpost: <strong>{routeInfo.guidePost}</strong></span>
+                  </div>
+                </>
+              ) : (
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  No itinerary route is linked to this subject yet. Route metadata will appear once a
+                  route is planned on the device.
+                </p>
+              )}
             </div>
           </div>
         )}

@@ -322,7 +322,7 @@ export default function App() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
                   {subjects.map(subject => {
                     const isSos = subject.status === 'SOS' || subject.staleStatus === 'EMERGENCY_STALE';
-                    const batt = subject.batteryPercent != null ? subject.batteryPercent : 75;
+                    const batt = subject.batteryPercent != null ? subject.batteryPercent : null;
                     const isSelected = selectedSubject?.subjectId === subject.subjectId;
 
                     return (
@@ -380,27 +380,31 @@ export default function App() {
                             CHOSEN ITINERARY ROUTE
                           </div>
                           <strong style={{ color: 'var(--text-bright)', fontSize: '0.84rem' }}>
-                            {subject.plannedRouteId || 'Nongriat Double Decker Living Root Trail'}
+                            {subject.plannedRouteId || 'Not specified'}
                           </strong>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', fontSize: '0.76rem' }}>
                           <div style={{ background: 'rgba(255, 255, 255, 0.4)', padding: '0.4rem 0.6rem', borderRadius: 8 }}>
                             <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', display: 'block' }}>BATTERY HEALTH</span>
-                            <strong style={{ color: batt <= 20 ? '#E11D48' : batt <= 50 ? '#D97706' : '#059669' }}>
-                              {batt}% ({batt <= 20 ? 'Critical' : 'Good'})
-                            </strong>
+                            {batt != null ? (
+                              <strong style={{ color: batt <= 20 ? '#E11D48' : batt <= 50 ? '#D97706' : '#059669' }}>
+                                {batt}% ({batt <= 20 ? 'Critical' : 'Good'})
+                              </strong>
+                            ) : (
+                              <strong style={{ color: 'var(--text-dim)' }}>--</strong>
+                            )}
                           </div>
                           <div style={{ background: 'rgba(255, 255, 255, 0.4)', padding: '0.4rem 0.6rem', borderRadius: 8 }}>
                             <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', display: 'block' }}>GPS ACCURACY</span>
                             <strong style={{ color: 'var(--text-bright)' }}>
-                              ±{Math.round(subject.accuracyMeters || 5)}m
+                              {subject.accuracyMeters != null ? `±${Math.round(subject.accuracyMeters)}m` : '--'}
                             </strong>
                           </div>
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-                          <span>Zone: <strong>{subject.currentZoneId || 'Safe Corridor'}</strong></span>
+                          <span>Zone: <strong>{subject.currentZoneId || 'Not determined'}</strong></span>
                           <span style={{ color: 'var(--primary-cyan)', fontWeight: 600 }}>Click to Inspect Full Details &rarr;</span>
                         </div>
                       </div>
