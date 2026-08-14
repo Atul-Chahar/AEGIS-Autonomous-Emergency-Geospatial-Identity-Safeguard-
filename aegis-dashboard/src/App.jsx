@@ -1,24 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import {
   Activity,
-  AlertCircle,
   AlertOctagon,
   AlertTriangle,
   Battery,
   CheckCircle2,
-  Clock,
   Compass,
+  FileCheck2,
+  Layers,
   MapPin,
   Navigation,
   PhoneCall,
   Radio,
+  Search,
   Shield,
-  Target
+  ShieldAlert,
+  ShieldCheck,
+  Target,
+  Users,
+  Zap
 } from 'lucide-react';
-import { Circle, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-
 import {
   fetchActiveTrips,
   fetchGeofences,
@@ -41,31 +42,14 @@ import {
   selectSelectedSubject
 } from './state/dashboardReducer';
 
-const INCIDENT_STATES = ['OPEN', 'ACKNOWLEDGED', 'TEAM_DISPATCHED', 'SEARCHING', 'LOCATED', 'RESOLVED'];
+import Sidebar from './components/Sidebar';
+import TopBar from './components/TopBar';
+import KpiMetrics from './components/KpiMetrics';
+import GeospatialMap from './components/GeospatialMap';
+import SubjectFeed from './components/SubjectFeed';
+import SubjectDetailDrawer from './components/SubjectDetailDrawer';
 
-const iconByStatus = {
-  ACTIVE: createCustomIcon('#10B981'),
-  CAUTION: createCustomIcon('#F59E0B'),
-  LIVE: createCustomIcon('#10B981'),
-  RECENT: createCustomIcon('#F59E0B'),
-  STALE: createCustomIcon('#64748B'),
-  EMERGENCY_STALE: createCustomIcon('#EF4444'),
-  SOS: createCustomIcon('#EF4444'),
-  SEARCHING: createCustomIcon('#8B5CF6'),
-  RESOLVED: createCustomIcon('#3B82F6')
-};
-
-const iconResponder = createCustomIcon('#3B82F6');
-const iconHazard = createCustomIcon('#F59E0B');
-
-function createCustomIcon(color) {
-  return L.divIcon({
-    className: 'custom-leaflet-marker',
-    html: `<div style="background-color:${color};width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 0 12px ${color};"></div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12]
-  });
-}
+import './App.css';
 
 export default function App() {
   const [state, dispatch] = useReducer(dashboardReducer, undefined, createInitialDashboardState);
@@ -76,14 +60,22 @@ export default function App() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Navigation & Search / Filter states
+  const [activeNav, setActiveNav] = useState('map');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+
   const subjects = useMemo(() => selectDashboardSubjects(state), [state]);
   const selectedSubject = useMemo(() => selectSelectedSubject(state), [state]);
   const { incidents, trips, geofences, hazards, responders } = useMemo(() => selectCollections(state), [state]);
+
   const selectedTrajectory = selectedSubject?.trajectory || [];
   const trajectoryPoints = selectedTrajectory
     .map(point => [Number(point.lat), Number(point.lon)])
     .filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon));
 
+  // Hydrate initial data from backend API
   const hydrateDashboard = useCallback(async () => {
     setLoading(true);
     try {
@@ -129,6 +121,7 @@ export default function App() {
     hydrateDashboard();
   }, [hydrateDashboard]);
 
+  // WebSocket Live Stream Listener
   useEffect(() => {
     let ws = null;
     let reconnectTimer = null;
@@ -171,6 +164,7 @@ export default function App() {
     };
   }, []);
 
+  // Fetch search probability whenever the selected subject coordinates change
   useEffect(() => {
     setRescueEvaluation(null);
     setSearchProbability(null);
@@ -183,7 +177,7 @@ export default function App() {
       lastDirectionDeg: 45
     })
       .then(setSearchProbability)
-      .catch(error => console.error('Search probability failed:', error));
+      .catch(error => console.error('Search probability fetch failed:', error));
   }, [selectedSubject?.subjectId, selectedSubject?.lat, selectedSubject?.lon, selectedSubject?.staleStatus]);
 
   const handleSelectSubject = subjectId => {
@@ -220,661 +214,324 @@ export default function App() {
     }
   };
 
+  // Auto-select initial subject if none selected
+  useEffect(() => {
+    if (subjects.length > 0 && !state.selectedSubjectId) {
+      dispatch({ type: 'SELECT_SUBJECT', subjectId: subjects[0].subjectId });
+    }
+  }, [subjects, state.selectedSubjectId]);
+
   const liveCount = subjects.filter(subject => subject.staleStatus === 'LIVE').length;
-  const staleCount = subjects.filter(subject => subject.isStale || subject.staleStatus === 'EMERGENCY_STALE').length;
+  const staleCount = subjects.filter(subject => subject.isStale || subject.staleStatus === 'EMERGENCY_STALE' || subject.staleStatus === 'STALE').length;
   const activeIncidentCount = incidents.filter(incident => incident.status !== 'RESOLVED').length;
 
   return (
-    <div style={styles.shell}>
-      <header className="glass-panel" style={styles.header}>
-        <div style={styles.brandGroup}>
-          <div style={styles.brandMark}>
-            <Shield size={28} color="#FFFFFF" />
-          </div>
-          <div>
-            <h1 style={styles.title}>AEGIS Command Center</h1>
-            <p style={styles.subtitle}>Active trip monitoring, last-known safety location, and emergency dispatch.</p>
-          </div>
-        </div>
+    <div className="dashboard-app-root">
+      {/* 1. Left Nav Sidebar (Auto-collapsible on hover, no logo, no user card) */}
+      <Sidebar
+        activeNav={activeNav}
+        onSelectNav={nav => {
+          setActiveNav(nav);
+          if (nav === 'sos') setActiveFilter('sos');
+          else if (nav === 'trips') setActiveFilter('all');
+        }}
+        activeSosCount={activeIncidentCount}
+        connectionStatus={state.connectionStatus}
+      />
 
-        <div style={styles.headerBadges}>
-          <span className="badge badge-purple">API {health?.status || 'DEV'}</span>
-          <span className={activeIncidentCount > 0 ? 'badge badge-danger' : 'badge badge-safe'}>
-            <AlertTriangle size={14} /> {activeIncidentCount} Active SOS
-          </span>
-          <span className={state.connectionStatus === 'LIVE' ? 'badge badge-safe' : 'badge badge-danger'}>
-            <Radio size={14} /> {state.connectionStatus}
-          </span>
-        </div>
-      </header>
+      {/* 2. Main Dashboard Area */}
+      <div className="dashboard-main-canvas">
+        {/* Top Navigation / Search Bar */}
+        <TopBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          activeSosCount={activeIncidentCount}
+          onRefresh={hydrateDashboard}
+          loading={loading}
+        />
 
-      <main style={styles.mainGrid}>
-        <section style={styles.leftColumn}>
-          <div style={styles.statsGrid}>
-            <MetricCard label="Monitored Active Trips" value={`${subjects.length} Subjects`} tone="main" detail={`${liveCount} live, ${staleCount} stale`} />
-            <MetricCard label="Critical Emergency SOS" value={activeIncidentCount} tone="danger" detail={activeIncidentCount > 0 ? 'Requires operator action' : 'All clear'} />
-            <MetricCard
-              label="Search Area Reduction"
-              value={`${searchProbability?.metrics?.areaReductionPercent || 0}%`}
-              tone="safe"
-              detail={searchProbability?.metrics
-                ? `${searchProbability.metrics.searchAreaBeforeBlackBoxKm2} km2 to ${searchProbability.metrics.searchAreaAfterBlackBoxKm2} km2`
-                : 'Estimated after subject selection'}
-              icon={<Target size={14} />}
-            />
-            <MetricCard label="Available Responders" value={`${responders.length} Units`} tone="cyan" detail="Police, rescue, medical" />
-          </div>
-
-          <div className="glass-panel" style={styles.mapPanel}>
-            <MapContainer center={[25.25, 91.5]} zoom={10} style={styles.map}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        {/* Content Canvas */}
+        <main className="dashboard-content-area">
+          {/* Navigation View Switcher */}
+          {activeNav === 'map' && (
+            <div className="dashboard-workspace-grid">
+              <GeospatialMap
+                subjects={subjects}
+                selectedSubject={selectedSubject}
+                onSelectSubject={handleSelectSubject}
+                geofences={geofences}
+                hazards={hazards}
+                responders={responders}
+                searchProbability={searchProbability}
+                trajectoryPoints={trajectoryPoints}
               />
-
-              {geofences.map(gf => renderGeofence(gf))}
-              {hazards.map(hazard => renderHazard(hazard))}
-              {renderSearchSectors(searchProbability)}
-
-              {trajectoryPoints.length > 1 && (
-                <Polyline positions={trajectoryPoints} pathOptions={{ color: '#38BDF8', weight: 4, opacity: 0.9, dashArray: '6, 6' }} />
-              )}
-
-              {responders.map(responder => renderResponder(responder))}
-
-              {subjects.map(subject => {
-                if (!Number.isFinite(subject.lat) || !Number.isFinite(subject.lon)) return null;
-                const isSelected = selectedSubject?.subjectId === subject.subjectId;
-                const markerIcon = iconByStatus[subject.staleStatus] || iconByStatus[subject.status] || iconByStatus.ACTIVE;
-                return (
-                  <React.Fragment key={subject.subjectId}>
-                    {(subject.status === 'SOS' || subject.staleStatus === 'EMERGENCY_STALE') && (
-                      <Circle
-                        center={[subject.lat, subject.lon]}
-                        radius={1500}
-                        pathOptions={{ color: '#EF4444', fillColor: '#EF4444', fillOpacity: 0.22 }}
-                      />
-                    )}
-                    {isSelected && (
-                      <Circle
-                        center={[subject.lat, subject.lon]}
-                        radius={Math.max(subject.accuracyMeters || 50, 50)}
-                        pathOptions={{ color: '#38BDF8', fillColor: '#38BDF8', fillOpacity: 0.16 }}
-                      />
-                    )}
-                    <Marker
-                      position={[subject.lat, subject.lon]}
-                      icon={markerIcon}
-                      eventHandlers={{ click: () => handleSelectSubject(subject.subjectId) }}
-                    >
-                      <Popup>
-                        <strong>{subject.status === 'SOS' ? 'SOS Incident' : 'Active Trip'}</strong><br />
-                        Tourist: {subject.touristId}<br />
-                        Trip: {subject.tripId || 'Not linked'}<br />
-                        Last known: {formatDateTime(subject.lastSeenAt)}<br />
-                        Accuracy: {formatMeters(subject.accuracyMeters)}<br />
-                        Status: {subject.staleStatus}
-                      </Popup>
-                    </Marker>
-                  </React.Fragment>
-                );
-              })}
-            </MapContainer>
-
-            <div style={styles.legend}>
-              <LegendDot color="#10B981" label="Live trip" />
-              <LegendDot color="#F59E0B" label="Recent/caution" />
-              <LegendDot color="#64748B" label="Stale" />
-              <LegendDot color="#EF4444" label="SOS" />
-              <LegendLine color="#38BDF8" label="Selected trail" />
-              <LegendDot color="#3B82F6" label="Responder" />
+              <div className="analytics-inspector-column full-inspector">
+                <SubjectDetailDrawer
+                  selectedSubject={selectedSubject}
+                  onUpdateIncidentState={handleUpdateIncidentState}
+                  onEvaluateRescue={handleMatchResponders}
+                  rescueEvaluation={rescueEvaluation}
+                  verifyInput={verifyInput}
+                  onVerifyInputChange={setVerifyInput}
+                  onVerifyContract={handleVerifyContract}
+                  verifyResult={verifyResult}
+                />
+              </div>
             </div>
-          </div>
-        </section>
+          )}
 
-        <aside style={styles.rightColumn}>
-          <section className="glass-panel" style={styles.panel}>
-            <div style={styles.panelHeader}>
-              <h2 style={styles.panelTitle}><Activity size={20} /> Active Subjects</h2>
-              <button className="btn-primary" style={styles.compactButton} onClick={hydrateDashboard}>{loading ? 'Refreshing' : 'Refresh'}</button>
+          {activeNav === 'sos' && (
+            <div className="dashboard-workspace-grid">
+              <GeospatialMap
+                subjects={subjects.filter(s => s.status === 'SOS' || s.staleStatus === 'EMERGENCY_STALE')}
+                selectedSubject={selectedSubject}
+                onSelectSubject={handleSelectSubject}
+                geofences={geofences}
+                hazards={hazards}
+                responders={responders}
+                searchProbability={searchProbability}
+                trajectoryPoints={trajectoryPoints}
+              />
+              <div className="analytics-inspector-column full-inspector">
+                <SubjectDetailDrawer
+                  selectedSubject={selectedSubject}
+                  onUpdateIncidentState={handleUpdateIncidentState}
+                  onEvaluateRescue={handleMatchResponders}
+                  rescueEvaluation={rescueEvaluation}
+                  verifyInput={verifyInput}
+                  onVerifyInputChange={setVerifyInput}
+                  onVerifyContract={handleVerifyContract}
+                  verifyResult={verifyResult}
+                />
+              </div>
             </div>
+          )}
 
-            <div style={styles.subjectList}>
-              {subjects.map(subject => (
-                <button
-                  key={subject.subjectId}
-                  type="button"
-                  onClick={() => handleSelectSubject(subject.subjectId)}
-                  style={{
-                    ...styles.subjectButton,
-                    borderColor: selectedSubject?.subjectId === subject.subjectId ? 'rgba(56, 189, 248, 0.65)' : 'rgba(255,255,255,0.06)'
-                  }}
-                >
-                  <span style={styles.subjectTopline}>
-                    <strong>{subject.touristId}</strong>
-                    <span className={badgeClassForSubject(subject)}>{subject.status}</span>
-                  </span>
-                  <span style={styles.subjectMeta}>{subject.tripId || subject.incidentId} - {subject.staleStatus}</span>
-                  <span style={styles.subjectMeta}>{formatDateTime(subject.lastSeenAt)} - {formatMeters(subject.accuracyMeters)}</span>
-                </button>
-              ))}
-              {subjects.length === 0 && (
-                <p style={styles.emptyText}>No active trip monitoring data is available yet.</p>
-              )}
+          {activeNav === 'trips' && (
+            <div className="dashboard-full-view">
+              <div className="glass-panel" style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Users size={20} color="var(--primary-cyan)" />
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Monitored Tourist Trips & GPS Streams</h3>
+                  </div>
+                  <span className="badge badge-cyan">{trips.length} Active Trips</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+                  {subjects.map(subject => {
+                    const isSos = subject.status === 'SOS' || subject.staleStatus === 'EMERGENCY_STALE';
+                    const batt = subject.batteryPercent != null ? subject.batteryPercent : 75;
+                    const isSelected = selectedSubject?.subjectId === subject.subjectId;
+
+                    return (
+                      <div
+                        key={subject.subjectId}
+                        className="glass-card"
+                        style={{
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.65rem',
+                          border: isSelected ? '1px solid var(--border-glow-cyan)' : '1px solid rgba(255, 255, 255, 0.65)',
+                          background: isSelected ? 'rgba(255, 255, 255, 0.85)' : 'var(--bg-glass-card)'
+                        }}
+                        onClick={() => {
+                          handleSelectSubject(subject.subjectId);
+                          setActiveNav('map');
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 10,
+                                background: isSos ? 'rgba(225, 29, 72, 0.12)' : 'rgba(2, 132, 199, 0.1)',
+                                color: isSos ? '#E11D48' : '#0284C7',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 800,
+                                fontSize: '0.8rem'
+                              }}
+                            >
+                              {isSos ? '!' : subject.touristId?.slice(-2) || 'T'}
+                            </div>
+                            <div>
+                              <strong style={{ fontSize: '0.96rem', color: 'var(--text-bright)', display: 'block' }}>
+                                {subject.touristId}
+                              </strong>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                                {subject.tripId || 'Direct GPS Track'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className={isSos ? 'badge badge-danger' : 'badge badge-safe'}>
+                            {subject.status}
+                          </span>
+                        </div>
+
+                        <div style={{ background: 'rgba(255, 255, 255, 0.5)', padding: '0.55rem 0.75rem', borderRadius: 12, fontSize: '0.78rem' }}>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700 }}>
+                            CHOSEN ITINERARY ROUTE
+                          </div>
+                          <strong style={{ color: 'var(--text-bright)', fontSize: '0.84rem' }}>
+                            {subject.plannedRouteId || 'Nongriat Double Decker Living Root Trail'}
+                          </strong>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', fontSize: '0.76rem' }}>
+                          <div style={{ background: 'rgba(255, 255, 255, 0.4)', padding: '0.4rem 0.6rem', borderRadius: 8 }}>
+                            <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', display: 'block' }}>BATTERY HEALTH</span>
+                            <strong style={{ color: batt <= 20 ? '#E11D48' : batt <= 50 ? '#D97706' : '#059669' }}>
+                              {batt}% ({batt <= 20 ? 'Critical' : 'Good'})
+                            </strong>
+                          </div>
+                          <div style={{ background: 'rgba(255, 255, 255, 0.4)', padding: '0.4rem 0.6rem', borderRadius: 8 }}>
+                            <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', display: 'block' }}>GPS ACCURACY</span>
+                            <strong style={{ color: 'var(--text-bright)' }}>
+                              ±{Math.round(subject.accuracyMeters || 5)}m
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+                          <span>Zone: <strong>{subject.currentZoneId || 'Safe Corridor'}</strong></span>
+                          <span style={{ color: 'var(--primary-cyan)', fontWeight: 600 }}>Click to Inspect Full Details &rarr;</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </section>
+          )}
 
-          <section className="glass-panel" style={styles.panel}>
-            <div style={styles.panelHeader}>
-              <h2 style={styles.panelTitle}><AlertCircle size={20} /> Subject Detail</h2>
-              <span className={selectedSubject ? badgeClassForSubject(selectedSubject) : 'badge badge-purple'}>
-                {selectedSubject?.staleStatus || 'NO SELECTION'}
-              </span>
-            </div>
-
-            {selectedSubject ? (
-              <div style={styles.detailStack}>
-                <DetailRow label="Tourist ID" value={selectedSubject.touristId} highlight />
-                <DetailRow label="ID Hash" value={previewHash(selectedSubject.idHash)} />
-                <DetailRow label="Trip ID" value={selectedSubject.tripId || 'Not linked'} />
-                <DetailRow label="Last Known Safety Location" value={formatPosition(selectedSubject)} />
-                <DetailRow label="Accuracy" value={formatMeters(selectedSubject.accuracyMeters)} />
-                <DetailRow label="Battery" value={selectedSubject.batteryPercent == null ? 'Unknown' : `${selectedSubject.batteryPercent}%`} />
-                <DetailRow label="Last Seen" value={formatDateTime(selectedSubject.lastSeenAt)} />
-                <DetailRow label="Source" value={selectedSubject.source || 'Unknown'} />
-                <DetailRow label="Route / Zone" value={`${selectedSubject.plannedRouteId || 'No route'} / ${selectedSubject.currentZoneId || 'No zone'}`} />
-                <DetailRow label="Risk Score" value={selectedSubject.riskScore == null ? 'Unknown' : `${selectedSubject.riskScore}/100`} />
-
-                {selectedSubject.incidentId && (
-                  <div style={styles.stateMachine}>
-                    <span style={styles.sectionLabel}>Incident State Machine</span>
-                    <div style={styles.stateButtons}>
-                      {INCIDENT_STATES.map(status => (
-                        <button
-                          key={status}
-                          type="button"
-                          onClick={() => handleUpdateIncidentState(status)}
-                          style={{
-                            ...styles.stateButton,
-                            background: selectedSubject.incidentStatus === status ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.08)',
-                            color: selectedSubject.incidentStatus === status ? '#FFFFFF' : 'var(--text-muted)'
-                          }}
-                        >
-                          {status}
-                        </button>
-                      ))}
+          {activeNav === 'hazards' && (
+            <div className="dashboard-full-view">
+              <div className="glass-panel" style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Layers size={20} color="var(--accent-amber)" />
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Active Geofences & Hazard Zones</h3>
+                  </div>
+                  <span className="badge badge-caution">{hazards.length} Reported Roadblocks</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                  {hazards.map(hazard => (
+                    <div key={hazard.id} className="glass-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '0.95rem' }}>{hazard.hazardType || hazard.type || 'Hazard Warning'}</strong>
+                        <span className="badge badge-caution">{hazard.status || 'Active'}</span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+                        {hazard.description || 'Reported landslide or road blockage on mountain pass corridor.'}
+                      </p>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '0.6rem', fontFamily: 'monospace' }}>
+                        Coordinates: {Number(hazard.lat).toFixed(4)}, {Number(hazard.lon).toFixed(4)}
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeNav === 'responders' && (
+            <div className="dashboard-full-view">
+              <div className="glass-panel" style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Activity size={20} color="var(--accent-purple)" />
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>SDRF & Emergency Dispatch Units</h3>
+                  </div>
+                  <span className="badge badge-purple">{responders.length} Units Ready</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {responders.map(responder => (
+                    <div key={responder.id} className="glass-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '0.95rem' }}>{responder.name}</strong>
+                        <span className="badge badge-safe">{responder.status || 'Available'}</span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+                        Type: {responder.vehicle || responder.type || 'SDRF Rapid Rescue'}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '0.6rem', fontFamily: 'monospace' }}>
+                        Base: {Number(responder.lat).toFixed(4)}, {Number(responder.lon).toFixed(4)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeNav === 'verify' && (
+            <div className="dashboard-full-view">
+              <div className="glass-panel" style={{ padding: '1.5rem', maxWidth: '650px', margin: '0 auto', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+                  <FileCheck2 size={22} color="var(--primary-cyan)" />
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Blockchain Voucher Verification</h3>
+                </div>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                  Validate pseudonymous tourist ID vouchers stored on Sepolia/Amoy testnets using cryptographic hash commitments without exposing raw identity documents.
+                </p>
+
+                <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
+                  <input
+                    type="text"
+                    className="topbar-search-input"
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 12,
+                      padding: '0.65rem 0.9rem',
+                      fontSize: '0.85rem',
+                      flex: 1
+                    }}
+                    placeholder="Enter keccak256(TouristID + ':' + Salt)"
+                    value={verifyInput}
+                    onChange={e => setVerifyInput(e.target.value)}
+                  />
+                  <button type="button" className="btn-primary" onClick={handleVerifyContract}>
+                    Verify Voucher
+                  </button>
+                </div>
+
+                {verifyResult && (
+                  <div
+                    style={{
+                      padding: '0.85rem 1rem',
+                      borderRadius: 12,
+                      background: verifyResult.valid || verifyResult.isValid ? 'rgba(5, 150, 105, 0.1)' : 'rgba(225, 29, 72, 0.1)',
+                      border: '1px solid',
+                      borderColor: verifyResult.valid || verifyResult.isValid ? 'rgba(5, 150, 105, 0.3)' : 'rgba(225, 29, 72, 0.3)',
+                      fontSize: '0.85rem',
+                      color: verifyResult.valid || verifyResult.isValid ? '#059669' : '#E11D48',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontWeight: 600
+                    }}
+                  >
+                    {verifyResult.valid || verifyResult.isValid ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                    <span>
+                      {verifyResult.valid || verifyResult.isValid
+                        ? 'Cryptographic Voucher Verified & Active on Blockchain'
+                        : `Voucher Invalid: ${verifyResult.reason || 'Record not found'}`}
+                    </span>
                   </div>
                 )}
-
-                <button className={selectedSubject.status === 'SOS' ? 'btn-danger' : 'btn-primary'} style={styles.fullButton} onClick={handleMatchResponders}>
-                  <Navigation size={18} /> Evaluate Rescueability
-                </button>
               </div>
-            ) : (
-              <p style={styles.emptyText}>Select an active trip or SOS incident to inspect last-known safety data.</p>
-            )}
-          </section>
-
-          {rescueEvaluation && (
-            <section className="glass-panel" style={styles.panel}>
-              <h2 style={styles.panelTitle}><Compass size={20} /> Rescueability</h2>
-              <ResponderEvaluation evaluation={rescueEvaluation} />
-            </section>
-          )}
-
-          <section className="glass-panel" style={styles.panel}>
-            <h2 style={styles.panelTitle}><CheckCircle2 size={20} /> Voucher Verification</h2>
-            <div style={styles.verifyRow}>
-              <input
-                value={verifyInput}
-                onChange={event => setVerifyInput(event.target.value)}
-                placeholder="Paste idHash"
-                style={styles.input}
-              />
-              <button className="btn-primary" style={styles.compactButton} onClick={handleVerifyContract}>Verify</button>
             </div>
-            {verifyResult && (
-              <p style={styles.verifyResult}>
-                {verifyResult.valid || verifyResult.isValid ? 'Voucher active' : `Voucher not active: ${verifyResult.reason || 'unknown'}`}
-              </p>
-            )}
-          </section>
-        </aside>
-      </main>
-    </div>
-  );
-}
-
-function MetricCard({ label, value, detail, tone, icon }) {
-  const color = tone === 'danger'
-    ? 'var(--accent-rose)'
-    : tone === 'safe'
-      ? 'var(--accent-emerald)'
-      : tone === 'cyan'
-        ? 'var(--primary-cyan)'
-        : 'var(--text-main)';
-
-  return (
-    <div className="glass-panel" style={styles.metricCard}>
-      <span style={styles.metricLabel}>{icon} {label}</span>
-      <h2 style={{ ...styles.metricValue, color }}>{value}</h2>
-      <span style={styles.metricDetail}>{detail}</span>
-    </div>
-  );
-}
-
-function DetailRow({ label, value, highlight }) {
-  return (
-    <div style={styles.detailRow}>
-      <span style={styles.detailLabel}>{label}</span>
-      <strong style={{ ...styles.detailValue, color: highlight ? 'var(--primary-cyan)' : 'var(--text-main)' }}>{value || 'Unknown'}</strong>
-    </div>
-  );
-}
-
-function ResponderEvaluation({ evaluation }) {
-  return (
-    <div style={styles.detailStack}>
-      {evaluation.geographicallyNearest && (
-        <div className="glass-card" style={{ borderLeft: '3px solid var(--accent-amber)' }}>
-          <span style={styles.sectionLabel}>Geographically Nearest</span>
-          <strong>{evaluation.geographicallyNearest.name}</strong>
-          <p style={styles.cardText}>{evaluation.geographicallyNearest.geoDistanceKm} km from last-known location.</p>
-          {evaluation.geographicallyNearest.isBlocked && (
-            <p style={styles.warningText}><AlertOctagon size={14} /> Impassable: {evaluation.geographicallyNearest.blockageReason}</p>
           )}
-        </div>
-      )}
-      {evaluation.operationallyRecommended && (
-        <div className="glass-card" style={{ borderLeft: '3px solid var(--accent-emerald)' }}>
-          <span style={styles.sectionLabel}>Operationally Recommended</span>
-          <strong>{evaluation.operationallyRecommended.name}</strong>
-          <p style={styles.cardText}>ETA {evaluation.operationallyRecommended.feasibleETAMins} mins - {evaluation.operationallyRecommended.geoDistanceKm} km.</p>
-          <button className="btn-primary" style={styles.compactButton}><PhoneCall size={14} /> Dispatch Unit</button>
-        </div>
-      )}
-      {evaluation.divergenceExplanation && (
-        <div className="glass-card" style={{ background: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
-          <span style={styles.sectionLabel}>Operational Divergence</span>
-          <p style={styles.cardText}>{evaluation.divergenceExplanation}</p>
-        </div>
-      )}
+        </main>
+      </div>
     </div>
   );
 }
-
-function renderGeofence(gf) {
-  const coords = gf.coordinates_json || gf.coordinates || gf.coords;
-  if (!coords) return null;
-  const color = gf.color || (gf.riskLevel === 'HIGH_RISK' ? '#EF4444' : '#F59E0B');
-  return (
-    <Polygon key={gf.id} positions={coords} pathOptions={{ color, fillColor: color, fillOpacity: 0.18, weight: 2 }}>
-      <Popup>
-        <strong>{gf.name}</strong><br />
-        Risk level: {gf.riskLevel || 'Unknown'}
-      </Popup>
-    </Polygon>
-  );
-}
-
-function renderHazard(hazard) {
-  const lat = Number(hazard.lat);
-  const lon = Number(hazard.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return (
-    <Marker key={hazard.id} position={[lat, lon]} icon={iconHazard}>
-      <Popup>
-        <strong>{hazard.hazardType || hazard.type || 'Hazard'}</strong><br />
-        {hazard.description || hazard.status || 'Reported hazard'}
-      </Popup>
-    </Marker>
-  );
-}
-
-function renderResponder(responder) {
-  const lat = Number(responder.lat);
-  const lon = Number(responder.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return (
-    <Marker key={responder.id} position={[lat, lon]} icon={iconResponder}>
-      <Popup>
-        <strong>{responder.name}</strong><br />
-        Status: {responder.status || 'AVAILABLE'}<br />
-        Vehicle: {responder.vehicle || responder.type || 'Unit'}
-      </Popup>
-    </Marker>
-  );
-}
-
-function renderSearchSectors(searchProbability) {
-  return searchProbability?.topSearchSectors?.map(sector => (
-    <Polygon
-      key={sector.sectorId}
-      positions={sector.bounds}
-      pathOptions={{ color: '#8B5CF6', fillColor: '#8B5CF6', fillOpacity: 0.3, weight: 2, dashArray: '4, 4' }}
-    >
-      <Popup>
-        <strong>{sector.name} estimate ({sector.probabilityPercent}%)</strong><br />
-        {sector.explanation}
-      </Popup>
-    </Polygon>
-  ));
-}
-
-function LegendDot({ color, label }) {
-  return (
-    <span style={styles.legendItem}>
-      <span style={{ ...styles.legendDot, background: color }} /> {label}
-    </span>
-  );
-}
-
-function LegendLine({ color, label }) {
-  return (
-    <span style={styles.legendItem}>
-      <span style={{ ...styles.legendLine, background: color }} /> {label}
-    </span>
-  );
-}
-
-function badgeClassForSubject(subject) {
-  if (subject.status === 'SOS' || subject.staleStatus === 'EMERGENCY_STALE') return 'badge badge-danger';
-  if (subject.staleStatus === 'STALE' || subject.staleStatus === 'RECENT') return 'badge badge-caution';
-  if (subject.status === 'RESOLVED') return 'badge badge-purple';
-  return 'badge badge-safe';
-}
-
-function formatPosition(subject) {
-  if (!Number.isFinite(subject.lat) || !Number.isFinite(subject.lon)) return 'Unknown';
-  return `${subject.lat.toFixed(4)}, ${subject.lon.toFixed(4)}`;
-}
-
-function formatMeters(value) {
-  return value == null ? 'Unknown accuracy' : `${Math.round(value)} m`;
-}
-
-function formatDateTime(value) {
-  if (!value) return 'Unknown';
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(value));
-}
-
-function previewHash(hash) {
-  if (!hash) return 'Not available';
-  return hash.length > 18 ? `${hash.slice(0, 10)}...${hash.slice(-6)}` : hash;
-}
-
-const styles = {
-  shell: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    backgroundColor: 'var(--bg-dark)'
-  },
-  header: {
-    margin: '1rem',
-    padding: '1rem 1.5rem',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '1rem',
-    flexWrap: 'wrap'
-  },
-  brandGroup: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem'
-  },
-  brandMark: {
-    background: 'var(--primary-gradient)',
-    padding: '0.6rem',
-    borderRadius: '12px',
-    display: 'flex'
-  },
-  title: {
-    fontSize: '1.4rem',
-    fontWeight: 800,
-    color: 'var(--text-main)'
-  },
-  subtitle: {
-    fontSize: '0.82rem',
-    color: 'var(--text-muted)'
-  },
-  headerBadges: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-    flexWrap: 'wrap'
-  },
-  mainGrid: {
-    flex: 1,
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) minmax(360px, 430px)',
-    gap: '1rem',
-    padding: '0 1rem 1rem'
-  },
-  leftColumn: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-    minWidth: 0
-  },
-  rightColumn: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-    minWidth: 0
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: '1rem'
-  },
-  metricCard: {
-    padding: '1rem',
-    minHeight: 116
-  },
-  metricLabel: {
-    fontSize: '0.75rem',
-    color: 'var(--text-muted)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.4rem',
-    textTransform: 'uppercase'
-  },
-  metricValue: {
-    fontSize: '1.55rem',
-    marginTop: '0.25rem'
-  },
-  metricDetail: {
-    fontSize: '0.72rem',
-    color: 'var(--text-muted)'
-  },
-  mapPanel: {
-    flex: 1,
-    minHeight: 560,
-    overflow: 'hidden',
-    position: 'relative'
-  },
-  map: {
-    height: '100%',
-    width: '100%',
-    minHeight: 560
-  },
-  legend: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    zIndex: 1000,
-    background: 'rgba(9, 13, 22, 0.86)',
-    backdropFilter: 'blur(8px)',
-    padding: '0.75rem 1rem',
-    borderRadius: 10,
-    border: '1px solid var(--border-color)',
-    display: 'flex',
-    gap: '0.8rem',
-    flexWrap: 'wrap',
-    fontSize: '0.78rem'
-  },
-  legendItem: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '0.38rem',
-    color: 'var(--text-main)'
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: '50%',
-    display: 'inline-block'
-  },
-  legendLine: {
-    width: 16,
-    height: 3,
-    display: 'inline-block'
-  },
-  panel: {
-    padding: '1.1rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem'
-  },
-  panelHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '0.75rem'
-  },
-  panelTitle: {
-    fontSize: '1rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem'
-  },
-  compactButton: {
-    padding: '0.42rem 0.72rem',
-    fontSize: '0.75rem'
-  },
-  fullButton: {
-    width: '100%',
-    justifyContent: 'center',
-    marginTop: '0.25rem'
-  },
-  subjectList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.65rem',
-    maxHeight: 315,
-    overflowY: 'auto'
-  },
-  subjectButton: {
-    width: '100%',
-    textAlign: 'left',
-    background: 'rgba(30, 41, 59, 0.55)',
-    border: '1px solid rgba(255,255,255,0.06)',
-    borderRadius: 10,
-    padding: '0.75rem',
-    color: 'var(--text-main)',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.35rem'
-  },
-  subjectTopline: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '0.5rem'
-  },
-  subjectMeta: {
-    fontSize: '0.76rem',
-    color: 'var(--text-muted)'
-  },
-  detailStack: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.72rem'
-  },
-  detailRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '1rem',
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
-    paddingBottom: '0.45rem'
-  },
-  detailLabel: {
-    color: 'var(--text-muted)',
-    fontSize: '0.82rem'
-  },
-  detailValue: {
-    fontSize: '0.84rem',
-    textAlign: 'right',
-    overflowWrap: 'anywhere'
-  },
-  stateMachine: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.45rem',
-    background: 'rgba(15, 23, 42, 0.6)',
-    padding: '0.75rem',
-    borderRadius: 10
-  },
-  sectionLabel: {
-    fontSize: '0.72rem',
-    color: 'var(--text-muted)',
-    fontWeight: 700,
-    textTransform: 'uppercase'
-  },
-  stateButtons: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '0.4rem'
-  },
-  stateButton: {
-    padding: '0.32rem 0.48rem',
-    fontSize: '0.68rem',
-    borderRadius: 6,
-    border: 'none',
-    cursor: 'pointer',
-    fontWeight: 700
-  },
-  verifyRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr auto',
-    gap: '0.5rem'
-  },
-  input: {
-    minWidth: 0,
-    background: 'rgba(15, 23, 42, 0.78)',
-    border: '1px solid var(--border-color)',
-    borderRadius: 8,
-    padding: '0.55rem 0.7rem',
-    color: 'var(--text-main)'
-  },
-  verifyResult: {
-    color: 'var(--text-muted)',
-    fontSize: '0.82rem'
-  },
-  emptyText: {
-    color: 'var(--text-muted)',
-    fontSize: '0.88rem'
-  },
-  cardText: {
-    color: 'var(--text-muted)',
-    fontSize: '0.78rem',
-    marginTop: '0.28rem'
-  },
-  warningText: {
-    color: 'var(--accent-rose)',
-    fontSize: '0.78rem',
-    marginTop: '0.35rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.3rem'
-  }
-};

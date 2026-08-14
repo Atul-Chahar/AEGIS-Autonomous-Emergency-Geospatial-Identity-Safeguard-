@@ -1,5 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-export const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:5000';
+const hostname = typeof window !== 'undefined' && window.location ? window.location.hostname : 'localhost';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${hostname}:5000/api`;
+export const WS_URL = import.meta.env.VITE_WS_URL || `ws://${hostname}:5000`;
 
 export async function fetchHealth() {
   const res = await fetch(`${API_BASE_URL}/health`);
@@ -59,7 +60,7 @@ export async function verifyVoucher(idHash) {
   return res.json();
 }
 
-export async function fetchSearchProbability(params = {}) {
+export async function fetchSearchProbability(params) {
   const res = await fetch(`${API_BASE_URL}/search-probability`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
